@@ -2,6 +2,7 @@
 
 #include "AudioPluginUtil.h"
 #include <string>
+#include <vector>
 
 
 extern float hrtfSrcData[];
@@ -9,6 +10,15 @@ extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
+    
+    struct meshData{
+        int numVerts;
+        std::vector<float> verts;
+        std::vector<float> norms;
+        std::vector<float> size;
+    };
+    
+    meshData geometry = *new meshData;
 
     //{ Start Interop Functions
     
@@ -36,6 +46,16 @@ namespace Spatializer
             gDebugCallback(message.c_str());
         }
     }
+    
+    extern "C" ABA_API void setStruct (int numVertsIn,float vertArrayIn[],float normArrayIn[],float sizeArrayIn[])
+    {
+        geometry.numVerts = numVertsIn;
+        geometry.verts.assign(vertArrayIn, vertArrayIn+numVertsIn*3);
+        geometry.norms.assign(normArrayIn, normArrayIn+numVertsIn*3);
+        geometry.size.assign(sizeArrayIn, sizeArrayIn+numVertsIn*3);
+
+    }
+    
     
     // End Interop Functions}
    
