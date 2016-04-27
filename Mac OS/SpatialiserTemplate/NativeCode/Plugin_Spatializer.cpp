@@ -3,6 +3,8 @@
 #include "AudioPluginUtil.h"
 #include <string>
 #include <vector>
+#include <sstream>
+
 
 
 extern float hrtfSrcData[];
@@ -22,11 +24,11 @@ namespace Spatializer
 
     //{ Start Interop Functions
     
-    #if UNITY_WIN
+   // #if UNITY_WIN
     #define ABA_API __declspec(dllexport)
-    #else
-    #define ABA_API
-    #endif
+ //   #else
+  //  #define ABA_API
+  //  #endif
     
     typedef void(*DebugCallback) (const char *str);
     DebugCallback gDebugCallback;
@@ -54,6 +56,12 @@ namespace Spatializer
         geometry.norms.assign(normArrayIn, normArrayIn+numVertsIn*3);
         geometry.size.assign(sizeArrayIn, sizeArrayIn+numVertsIn*3);
 
+		std::stringstream sstr;
+		sstr << "Recveived mesh with ";
+		sstr << geometry.numVerts;
+		sstr << " verts";
+		std::string s1 = sstr.str();
+		DebugInUnity(std::string(s1));
     }
     
     
@@ -145,6 +153,22 @@ namespace Spatializer
         UnityComplexNumber y[HRTFLEN * 2];
         float buffer[HRTFLEN * 2];
     };
+
+	struct Filterbank
+	{
+		BiquadFilter Octave1[2];
+		BiquadFilter Octave2[2];
+		BiquadFilter Octave3[2];
+		BiquadFilter Octave4[2];
+		BiquadFilter Octave5[2];
+		BiquadFilter Octave6[2];
+		BiquadFilter Octave7[2];
+		BiquadFilter Octave8[2];
+		BiquadFilter DisplayFilterCoeffs[3];
+		float sr;
+		Random random;
+	};
+
 
     struct EffectData
     {
@@ -274,10 +298,15 @@ namespace Spatializer
             azimuth += 2.0f * kPI;
         azimuth = FastClip(azimuth * kRad2Deg, 0.0f, 360.0f);
 
+		/* We compute the distance between the source and the sound
+		and the distance decay coefficient*/
+		float distance = sqrt((dir_x*dir_x) + (dir_y*dir_y));
+		float dis_decay = 1.0f / FastMax(1.0f, distance);
+
         float elevation = atan2f(dir_y, sqrtf(dir_x * dir_x + dir_z * dir_z) + 0.001f) * kRad2Deg;
         float spatialblend = state->spatializerdata->spatialblend;
         float reverbmix = state->spatializerdata->reverbzonemix;
-
+	
         GetHRTF(0, data->ch[0].h, azimuth, elevation);
         GetHRTF(1, data->ch[1].h, azimuth, elevation);
 
@@ -325,14 +354,16 @@ namespace Spatializer
                 for (int n = 0; n < HRTFLEN; n++)
                 {
                     float s = inbuffer[n * 2 + c] * stereopan;
-                    float y = s + (ch.y[n].re * GAINCORRECTION - s) * spatialblend;
+					float y = s + (ch.y[n].re * GAINCORRECTION - s) * spatialblend; //* dis_decay;
                     outbuffer[n * 2 + c] = y;
+			//		outbuffer[n * 2 + c] = 0;
                     reverb[n * 2 + c] += y * reverbmix;
                 }
             }
 
             inbuffer += HRTFLEN * 2;
             outbuffer += HRTFLEN * 2;
+			outbuffer += HRTFLEN * 2;
             reverb += HRTFLEN * 2;
         }
 
