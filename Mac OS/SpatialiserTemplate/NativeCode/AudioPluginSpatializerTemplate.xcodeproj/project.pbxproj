@@ -29,6 +29,7 @@
 		FA7836D21CAD70E200C0B27D /* hrtftable.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = hrtftable.cpp; sourceTree = "<group>"; };
 		FA7836D61CAD722C00C0B27D /* Plugin_SpatializerReverb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Plugin_SpatializerReverb.cpp; sourceTree = "<group>"; };
 		FAD0451C1CAD6E45004E689F /* Plugin_Spatializer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Plugin_Spatializer.cpp; sourceTree = "<group>"; };
+		FAE824FF1CCA2FB600C16CE3 /* rayTraceUtil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rayTraceUtil.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +85,7 @@
 				FAD0451C1CAD6E45004E689F /* Plugin_Spatializer.cpp */,
 				3D199B6D1858F3E60063EC53 /* PluginList.h */,
 				3DA35E0E175F7CA000FA3842 /* AudioPluginInterface.h */,
+				FAE824FF1CCA2FB600C16CE3 /* rayTraceUtil.h */,
 			);
 			name = Source;
 			sourceTree = "<group>";
