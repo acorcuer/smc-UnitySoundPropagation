@@ -1,7 +1,9 @@
 ﻿using UnityEngine;
+using UnityEditor;
 using System;
 using System.Runtime.InteropServices;
 
+[InitializeOnLoad]
 public class cppDebug : MonoBehaviour {
 
 	private delegate void DebugCallback(string message);
@@ -9,13 +11,13 @@ public class cppDebug : MonoBehaviour {
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void RegisterDebugCallback(DebugCallback callback);
 
-	private void Start()
+	static cppDebug()
 	{
 		RegisterDebugCallback(new DebugCallback(DebugMethod));
 	}
 
 	private static void DebugMethod(string message)
 	{
-		Debug.Log("NAPlugin: " + message);
+		Debug.Log("FromCPP: " + message);
 	}
 }

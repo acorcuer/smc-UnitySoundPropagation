@@ -224,6 +224,7 @@ struct UnityAudioEffectState
         };
         unsigned char pad[80]; // This entire structure must be a multiple of 16 bytes (and and instance 16 byte aligned) for PS3 SPU DMA requirements
     };
+    
 #ifdef __cplusplus
     template<typename T> inline T* GetEffectData() const
     {
@@ -233,9 +234,12 @@ struct UnityAudioEffectState
 #endif
         return (T*)effectdata;
     }
-
 #endif
+
 };
+
+
+
 
 struct UnityAudioParameterDefinition
 {
