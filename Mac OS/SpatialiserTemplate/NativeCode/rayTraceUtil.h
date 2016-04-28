@@ -40,11 +40,23 @@ public:
     { X = n_x; Y = n_y; Z = n_z;}
     inline void setPos(float n_x, float n_y, float n_z)
     {X = n_x; Y = n_y; Z = n_z;}
-private:
     inline Vector3 operator + (const Vector3& A) const
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
     inline float Dot( const Vector3& A ) const
     { return A.X*X + A.Y*Y + A.Z*Z; }
+    inline float operator [] (const int& A) const{
+        switch(A){
+        case 0:
+        return X;
+        break;
+        case 1:
+        return Y;
+        break;
+        case 2:
+        return Z;
+        break;
+        }
+    }
 };
 
 class Tri {
@@ -65,13 +77,14 @@ public:
     float pathLength = 0;
     inline Ray(){};
     inline Ray(Vector3 n_o, Vector3 n_d)
-    {origin = n_o; direction = n_d;}
+    {origin = n_o;direction = n_d;}
     inline void setOrigin(Vector3 n_o)
     {origin = n_o;}
     inline void setDirection(Vector3 n_d)
     {direction = n_d;}
     inline void addLength(float add)
     {pathLength += add;}
+    
 };
 
 class Bounds {
@@ -85,6 +98,22 @@ public:
     inline void setBB(Vector3 n_max,Vector3 n_min){
         max = n_max;
         min = n_min;
+    }
+    inline bool testIntersect(Ray r, float tmin, float tmax) {
+        for(int i = 0; i < 3; i++){
+            float invD = 1.0f / r.direction[i];
+            float t0 = (min[i] - r.origin[i]) * invD;
+            float t1 = (max[i] - r.origin[i]) * invD;
+            if(invD < 0.0f) {
+                std::swap(t0, t1);
+            }
+            tmin = t0 > tmin ? t0 : tmin;
+            tmax = t1 > tmax ? t1 : tmin;
+            if(tmax < tmin){
+                return false;
+            }
+        }
+        return true;
     }
 };
 
@@ -130,13 +159,6 @@ class GeomeTree {
     };
 };
 
-void findIntersect() {
-    
-};
-
-void shootRay() {
-    
-};
 
 
 #endif /* rayTraceUtil_h */
