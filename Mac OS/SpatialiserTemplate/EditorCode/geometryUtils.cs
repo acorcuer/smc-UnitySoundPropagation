@@ -9,7 +9,7 @@ using System.Collections.Generic;
 #pragma warning disable 0414 
 
 public class triangle {
-	// X,Y,Z of 3 triangle corners and the face normal (average of corner normals)
+	// X,Y,Z of 3 triangle corners and the face normal 
 	public Vector3 P1,P2,P3,facenorm;
 	public triangle() {}
 	public triangle(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3, Vector3 n_fn){
@@ -24,6 +24,7 @@ public class triangle {
 		P2 = n_p2;
 		P3 = n_p3;
 		facenorm = n_fn;
+
 	}
 }
 	

@@ -180,7 +180,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEPLOYMENT_LOCATION = YES;
-				DSTROOT = "/Users/Alex/AAU/SEM2/Semester Proj/CodeBase/smc-UnitySoundPropagation/Mac OS/SpatialiserTemplate/Assets";
+				DSTROOT = "/Users/Alex/AAU/SEM2/Semester Proj/CodeBase/Local/Mac OS/SpatialiserTemplate/Assets";
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
@@ -209,7 +210,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_LOCATION = YES;
-				DSTROOT = "/Users/Alex/AAU/SEM2/Semester Proj/CodeBase/smc-UnitySoundPropagation/Mac OS/SpatialiserTemplate/Assets";
+				DSTROOT = "/Users/Alex/AAU/SEM2/Semester Proj/CodeBase/Local/Mac OS/SpatialiserTemplate/Assets";
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = /Plugins;

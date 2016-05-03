@@ -11,11 +11,42 @@ public class meshTransport : MonoBehaviour {
 	public string includeTag = "geo";
 	public int numTriPerLeaf = 10;
 	public bool rescanFlag = false;
-	public bool showCombinedMesh = false;
-		
+	public bool showWireFrame = false;
+	public bool showSurfaceNormals = false;
+	public bool showBoundingHeirarchy = false;
+	public bool getRays = false;
+	public bool showRays = false;
+	private triangle[] debugTri;
+	private Node[] debugNode;
+	private Vector3[] rayOrigins, rayDirections;
+
 	[DllImport("AudioPluginSpatializerTemplate", CallingConvention = CallingConvention.StdCall)]
 	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes);
-	  
+
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void getDirec (out int length, out IntPtr array);
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void getOrig (out int length, out IntPtr array);
+
+	private float[] marshalOrig() {
+		int arraySize;
+		IntPtr arrayPtr;
+		getOrig (out arraySize,out arrayPtr);
+		float[] theArray =  new float[arraySize];
+		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
+		Marshal.FreeCoTaskMem (arrayPtr);
+		return theArray;
+	}
+	private float[] marshalDirec() {
+		int arraySize;
+		IntPtr arrayPtr;
+		getDirec (out arraySize,out arrayPtr);
+		float[] theArray =  new float[arraySize];
+		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
+		Marshal.FreeCoTaskMem (arrayPtr);
+		return theArray;
+	}
+
 	void Start () {
 		GeomeTree KDTree = calcTree ();
 		sendTree (KDTree);
@@ -27,13 +58,26 @@ public class meshTransport : MonoBehaviour {
 			sendTree (KDTree);
 			rescanFlag = false;
 		}
-		transform.GetComponent<MeshRenderer> ().enabled =  showCombinedMesh;
+		if (getRays) {
+			float[] tempO = marshalOrig ();
+			float[] tempD = marshalDirec ();
+			rayOrigins = new Vector3[tempO.Length / 3];
+			rayDirections = new Vector3[tempD.Length / 3];
+
+			for (int i = 0; i < rayOrigins.Length; i++) {
+				rayOrigins[i] = new Vector3(tempO[i*3],tempO[(i*3)+1],tempO[(i*3)+2]);
+				rayDirections[i] = new Vector3(tempD[i*3],tempD[(i*3)+1],tempD[(i*3)+2]);
+
+			}
+			getRays = false;
+		}
 	}
 
 	GeomeTree calcTree() {
 		GameObject[] includedObjects = GameObject.FindGameObjectsWithTag (includeTag);
 		Mesh combMesh = combineMeshes(includedObjects);
 		triangle[] triArray = extractTris (combMesh);
+		debugTri = triArray;
 		GeomeTree theTree = new GeomeTree (3,numTriPerLeaf, triArray);
 		return theTree;
 	}
@@ -47,7 +91,7 @@ public class meshTransport : MonoBehaviour {
 		}
 		transform.GetComponent<MeshFilter>().mesh = new Mesh();
 		transform.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
-		transform.GetComponent<MeshRenderer> ().material = new Material (Shader.Find ("Diffuse"));
+		transform.GetComponent<MeshRenderer> ().enabled = false;
 		return transform.GetComponent<MeshFilter> ().mesh;
 	}
 
@@ -55,7 +99,6 @@ public class meshTransport : MonoBehaviour {
 		int numTri = inputMesh.triangles.Length/3;
 		int [] triIdx = inputMesh.triangles;
 		Vector3[] vertVecs = inputMesh.vertices;
-		Vector3[] normVecs = inputMesh.normals;
 		triangle[] outputArray = new triangle[numTri];
 		for (int i = 0; i < numTri; i++) {
 			// Vectors in the mesh are stored on local scale (relating them to each other) in order to 
@@ -64,7 +107,7 @@ public class meshTransport : MonoBehaviour {
 			Vector3 P1 = transform.TransformPoint(vertVecs [triIdx[i*3]]);
 			Vector3 P2 = transform.TransformPoint(vertVecs [triIdx[(i*3)+1]]);
 			Vector3 P3 = transform.TransformPoint(vertVecs [triIdx[(i*3)+2]]);
-			Vector3 faceNorm = transform.TransformPoint((normVecs [triIdx[i*3]] + normVecs [triIdx[(i*3)+1]] + normVecs [triIdx[(i*3)+2]])/3);
+			Vector3 faceNorm = Vector3.Cross((P2 - P1),(P3 - P1));
 			outputArray[i] = new triangle(P1,P2,P3,faceNorm);
 		}
 		return outputArray;
@@ -72,6 +115,7 @@ public class meshTransport : MonoBehaviour {
 
 	void sendTree(GeomeTree inputTree) {
 		Node[] nodeList = inputTree.getNodeList ().ToArray();
+		debugNode = nodeList;
 		int numTris = inputTree.numTriangles ();
 		int numLeaves = inputTree.getLeafCount ();
 		int numNodes = (numLeaves * 2) - 1;
@@ -97,6 +141,7 @@ public class meshTransport : MonoBehaviour {
 				triangle[] nodeTriangles = nodeList [i].getTriangles();
 				leafSizeList [leafSizeIdx++] = nodeTriangles.Length;
 				for (int j = 0; j < nodeTriangles.Length; j++) {
+						
 					triangleList [triListIdx*12] = nodeTriangles [j].P1.x;
 					triangleList [(triListIdx*12)+1] = nodeTriangles [j].P1.y;
 					triangleList [(triListIdx*12)+2] = nodeTriangles [j].P1.z;
@@ -113,8 +158,35 @@ public class meshTransport : MonoBehaviour {
 				}
 			}
 		}
-		print (numTris.ToString ());
 		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length, leafSizeList); 
 	}
+
+	void OnDrawGizmos() {
+		Gizmos.color = Color.green;
+		if (showWireFrame) {
+			Gizmos.DrawWireMesh (GetComponent<MeshFilter> ().mesh);
+		}
+		Gizmos.color = Color.red;
+		if (showSurfaceNormals) {
+			for (int i = 0; i < debugTri.Length; i++) {
+				Ray tempRay = new Ray((debugTri [i].P1 +debugTri [i].P2+debugTri [i].P3)/3, debugTri[i].facenorm);
+				Gizmos.DrawRay(tempRay);
+			}
+		}	
+		Gizmos.color = Color.blue;
+		if (showBoundingHeirarchy) {
+			for(int i = 0; i < debugNode.Length; i++) {
+				Gizmos.DrawWireCube (debugNode [i].getBB ().center,debugNode [i].getBB ().size);
+			}
+		}
+		Gizmos.color = Color.yellow;
+		if (showRays) {
+			for (int i = 0; i < rayDirections.Length; i++) {
+				Ray tempRay = new Ray (rayOrigins [i], rayDirections [i]);
+				Gizmos.DrawRay (tempRay);
+			}
+		}
+	}
+	 
 }
 	
