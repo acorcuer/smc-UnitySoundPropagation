@@ -1,8 +1,11 @@
 // Please note that this will only work on Unity 5.2 or higher.
 
+#define _USE_MATH_DEFINES
+
+
 #include "AudioPluginUtil.h"
 #include "rayTraceUtil.h"
-
+#include <cmath>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -14,10 +17,11 @@ extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
-
     GeomeTree* triangleTree;
     bool treeInit = false;
     bool newTree = false;
+    std::vector<float> direcs;
+    std::vector<float> origins;
     
     enum
     {
@@ -144,6 +148,8 @@ namespace Spatializer
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK CreateCallback(UnityAudioEffectState* state)
     {
+        origins.clear();
+        direcs.clear();
         EffectData* effectdata = new EffectData;
         memset(effectdata, 0, sizeof(EffectData));
         state->effectdata = effectdata;
@@ -205,23 +211,60 @@ namespace Spatializer
         sharedData.hrtfChannel[channel][index1].GetHRTF(h, azimuth, 1.0f);
         sharedData.hrtfChannel[channel][index2].GetHRTF(h, azimuth, e - f);
     }
-
+    
+    extern "C" ABA_API void getDirec(long* len, float **data){
+        *len = direcs.size();
+        auto size = (*len)*sizeof(float);
+        *data = static_cast<float*>(malloc(size));
+        memcpy(*data, direcs.data(), size);
+    }
+    extern "C" ABA_API void getOrig(long* len, float **data){
+        *len = origins.size();
+        auto size = (*len)*sizeof(float);
+        *data = static_cast<float*>(malloc(size));
+        memcpy(*data, origins.data(), size);
+    }
     extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[] ) {
         treeInit = false;
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
+        
         std::stringstream sstr;
         sstr << "Tree sucessfully recreated with ";
-        sstr << (triangleList.size()/4);
+        sstr << ((triangleList.size()/4)/3);
         sstr << " triangles ";
         std::string s1 = sstr.str();
+        
         triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList);
         treeInit = true;
         newTree = true;
+        
         DebugInUnity(std::string(s1));
     }
-    
+
+    void calcImpResponse(float* listenerMatrix,float* sourceMatrix) {
+        
+        float phi = ((sqrtf(5.0f)+1)/2.0f) - 1.0f;
+        float ga = phi * M_2_PI;
+        Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
+        
+        for(int i = 0; i < 10000; i++) {
+            float lon = ga*i;
+            float lat = asinf(-1.0f + (2.0f * (i/10000.0f)));
+            Vector3 directionVector = Vector3(cosf(lat) * cosf(lon), cosf(lat) * sinf(lon), sinf(lat));
+            Vector3 positionVector = directionVector + sourcePos;
+            Ray thisRay = Ray(positionVector, directionVector);
+            std::deque<Tri> candidates = triangleTree->getCandidates(&thisRay);
+            direcs.push_back(thisRay.direction.X);
+            direcs.push_back(thisRay.direction.Y);
+            direcs.push_back(thisRay.direction.Z);
+            origins.push_back(thisRay.origin.X);
+            origins.push_back(thisRay.origin.Y);
+            origins.push_back(thisRay.origin.Z);
+
+        };
+    };
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
     {
@@ -240,20 +283,20 @@ namespace Spatializer
         float* m = state->spatializerdata->listenermatrix;
         float* s = state->spatializerdata->sourcematrix;
         
-        
         if (treeInit) {
             if(newTree){
             DebugInUnity(std::string("recalculating impulse response"));
+                calcImpResponse(state->spatializerdata->listenermatrix,state->spatializerdata->sourcematrix);
             newTree = false;
             }
         }
+        
+        //&data->p[P_NUMRAYS]
         
         // Currently we ignore source orientation and only use the position
         float px = s[12];
         float py = s[13];
         float pz = s[14];
-        
-        
         
         float dir_x = m[0] * px + m[4] * py + m[8] * pz + m[12];
         float dir_y = m[1] * px + m[5] * py + m[9] * pz + m[13];

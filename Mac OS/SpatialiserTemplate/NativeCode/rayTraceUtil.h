@@ -4,6 +4,7 @@
 #include <deque>
 #include <string>
 #include <sstream>
+#include <utility>
 
 
 #if UNITY_WIN
@@ -55,6 +56,8 @@ public:
         case 2:
         return Z;
         break;
+        default:
+        return NULL;
         }
     }
 };
@@ -99,11 +102,11 @@ public:
         max = n_max;
         min = n_min;
     }
-    inline bool testIntersect(Ray r, float tmin, float tmax) {
+    inline bool testIntersect(Ray *r, float tmin, float tmax) {
         for(int i = 0; i < 3; i++){
-            float invD = 1.0f / r.direction[i];
-            float t0 = (min[i] - r.origin[i]) * invD;
-            float t1 = (max[i] - r.origin[i]) * invD;
+            float invD = 1.0f / r->direction[i];
+            float t0 = (min[i] - r->origin[i]) * invD;
+            float t1 = (max[i] - r->origin[i]) * invD;
             if(invD < 0.0f) {
                 std::swap(t0, t1);
             }
@@ -121,10 +124,10 @@ class Node {
 private:
     Bounds boundingBox;
     int depth;
-    Node *leftChild,*rightChild;
     std::vector<Tri> nodeTriangles;
     bool isLeaf = false;
 public:
+    Node *leftChild,*rightChild;
     inline Node() {}
     inline Node(int parentDepth, int maxDepth, std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray) {
         this->depth = parentDepth+1;
@@ -148,6 +151,18 @@ public:
             rightChild = new Node(depth,maxDepth,boundingBoxArray,triangleArray,leafSizeArray);
         }
     }
+    inline bool intersects(Ray *testRay){
+        return boundingBox.testIntersect(testRay, 0, 10);
+    }
+    inline bool getIsLeaf() {
+        return isLeaf;
+    }
+    inline std::vector<Tri>* getTri() {
+        return &nodeTriangles;
+    }
+    inline int numTri() {
+        return nodeTriangles.size();
+    }
 };
 
 class GeomeTree {
@@ -157,6 +172,30 @@ class GeomeTree {
     inline GeomeTree(int maxDepth,std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray) {
         masterNode = *new Node(1,maxDepth,boundingBoxArray,triangleArray,leafSizeArray);
     };
+    
+    inline std::deque<Tri> getCandidates(Ray *testRay) {
+        std::deque<Tri> candidates;
+        collision(&masterNode, testRay, &candidates);
+        return candidates;
+    }
+    
+    inline void collision(Node *currentNode, Ray *testRay, std::deque<Tri> *candidates) {
+        if(currentNode->intersects(testRay)) {
+            if (currentNode->getIsLeaf()) {
+                if(currentNode->numTri() != 0) {
+                    for(int i = 0; i < currentNode->getTri()->size();i++){
+                        candidates->push_back(currentNode->getTri()->at(i));
+                    }
+                    
+                }
+
+            }else {
+                collision(currentNode->leftChild, testRay, candidates);
+                collision(currentNode->rightChild, testRay, candidates);
+        
+        }
+    }
+}
 };
 
 

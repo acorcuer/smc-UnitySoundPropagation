@@ -14,13 +14,39 @@ public class meshTransport : MonoBehaviour {
 	public bool showWireFrame = false;
 	public bool showSurfaceNormals = false;
 	public bool showBoundingHeirarchy = false;
+	public bool getRays = false;
+	public bool showRays = false;
 	private triangle[] debugTri;
 	private Node[] debugNode;
+	private Vector3[] rayOrigins, rayDirections;
 
-		
 	[DllImport("AudioPluginSpatializerTemplate", CallingConvention = CallingConvention.StdCall)]
 	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes);
-	  
+
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void getDirec (out int length, out IntPtr array);
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void getOrig (out int length, out IntPtr array);
+
+	private float[] marshalOrig() {
+		int arraySize;
+		IntPtr arrayPtr;
+		getOrig (out arraySize,out arrayPtr);
+		float[] theArray =  new float[arraySize];
+		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
+		Marshal.FreeCoTaskMem (arrayPtr);
+		return theArray;
+	}
+	private float[] marshalDirec() {
+		int arraySize;
+		IntPtr arrayPtr;
+		getDirec (out arraySize,out arrayPtr);
+		float[] theArray =  new float[arraySize];
+		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
+		Marshal.FreeCoTaskMem (arrayPtr);
+		return theArray;
+	}
+
 	void Start () {
 		GeomeTree KDTree = calcTree ();
 		sendTree (KDTree);
@@ -32,28 +58,20 @@ public class meshTransport : MonoBehaviour {
 			sendTree (KDTree);
 			rescanFlag = false;
 		}
-	}
+		if (getRays) {
+			float[] tempO = marshalOrig ();
+			float[] tempD = marshalDirec ();
+			rayOrigins = new Vector3[tempO.Length / 3];
+			rayDirections = new Vector3[tempD.Length / 3];
 
-	void OnDrawGizmos() {
-		Gizmos.color = Color.green;
-		if (showWireFrame) {
-			Gizmos.DrawWireMesh (GetComponent<MeshFilter> ().mesh);
-		}
-		Gizmos.color = Color.red;
-		if (showSurfaceNormals) {
-			for (int i = 0; i < debugTri.Length; i++) {
-				Ray tempRay = new Ray((debugTri [i].P1 +debugTri [i].P2+debugTri [i].P3)/3, debugTri[i].facenorm);
-				Gizmos.DrawRay(tempRay);
+			for (int i = 0; i < rayOrigins.Length; i++) {
+				rayOrigins[i] = new Vector3(tempO[i*3],tempO[(i*3)+1],tempO[(i*3)+2]);
+				rayDirections[i] = new Vector3(tempD[i*3],tempD[(i*3)+1],tempD[(i*3)+2]);
+
 			}
-		}	
-		Gizmos.color = Color.blue;
-		if (showBoundingHeirarchy) {
-			for(int i = 0; i < debugNode.Length; i++) {
-				Gizmos.DrawWireCube (debugNode [i].getBB ().center,debugNode [i].getBB ().size);
-			}
+			getRays = false;
 		}
 	}
-
 
 	GeomeTree calcTree() {
 		GameObject[] includedObjects = GameObject.FindGameObjectsWithTag (includeTag);
@@ -123,6 +141,7 @@ public class meshTransport : MonoBehaviour {
 				triangle[] nodeTriangles = nodeList [i].getTriangles();
 				leafSizeList [leafSizeIdx++] = nodeTriangles.Length;
 				for (int j = 0; j < nodeTriangles.Length; j++) {
+						
 					triangleList [triListIdx*12] = nodeTriangles [j].P1.x;
 					triangleList [(triListIdx*12)+1] = nodeTriangles [j].P1.y;
 					triangleList [(triListIdx*12)+2] = nodeTriangles [j].P1.z;
@@ -141,5 +160,33 @@ public class meshTransport : MonoBehaviour {
 		}
 		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length, leafSizeList); 
 	}
+
+	void OnDrawGizmos() {
+		Gizmos.color = Color.green;
+		if (showWireFrame) {
+			Gizmos.DrawWireMesh (GetComponent<MeshFilter> ().mesh);
+		}
+		Gizmos.color = Color.red;
+		if (showSurfaceNormals) {
+			for (int i = 0; i < debugTri.Length; i++) {
+				Ray tempRay = new Ray((debugTri [i].P1 +debugTri [i].P2+debugTri [i].P3)/3, debugTri[i].facenorm);
+				Gizmos.DrawRay(tempRay);
+			}
+		}	
+		Gizmos.color = Color.blue;
+		if (showBoundingHeirarchy) {
+			for(int i = 0; i < debugNode.Length; i++) {
+				Gizmos.DrawWireCube (debugNode [i].getBB ().center,debugNode [i].getBB ().size);
+			}
+		}
+		Gizmos.color = Color.yellow;
+		if (showRays) {
+			for (int i = 0; i < rayDirections.Length; i++) {
+				Ray tempRay = new Ray (rayOrigins [i], rayDirections [i]);
+				Gizmos.DrawRay (tempRay);
+			}
+		}
+	}
+	 
 }
 	
