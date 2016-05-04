@@ -45,6 +45,9 @@ public:
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
     inline float Dot( const Vector3& A ) const
     { return A.X*X + A.Y*Y + A.Z*Z; }
+    inline bool operator<(const Vector3 &A) const {
+        return (X < A[0] && Y < A[1] && Z < A[2]);
+    }
     inline float operator [] (const int& A) const{
         switch(A){
         case 0:
@@ -76,15 +79,24 @@ public:
 
 class Ray {
 public:
-    Vector3 origin,direction;
+    Vector3 origin,direction,invDirection;
     float pathLength = 0;
+    int sign[3];
     inline Ray(){};
     inline Ray(Vector3 n_o, Vector3 n_d)
-    {origin = n_o;direction = n_d;}
+    {origin = n_o;
+    direction = n_d;
+    invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
+        sign[0] = (invDirection.X < 0);
+        sign[1] = (invDirection.Y < 0);
+        sign[2] = (invDirection.Z < 0);
+    }
     inline void setOrigin(Vector3 n_o)
     {origin = n_o;}
     inline void setDirection(Vector3 n_d)
-    {direction = n_d;}
+    {direction = n_d;
+    invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
+    }
     inline void addLength(float add)
     {pathLength += add;}
     
@@ -92,31 +104,41 @@ public:
 
 class Bounds {
 public:
-    Vector3 max,min;
+    Vector3 parameters[2];
     inline Bounds() {}
     inline Bounds(Vector3 n_max,Vector3 n_min){
-        max = n_max;
-        min = n_min;
+        assert(n_min < n_max);
+        parameters[0] = n_min;
+        parameters[1] = n_max;
     }
     inline void setBB(Vector3 n_max,Vector3 n_min){
-        max = n_max;
-        min = n_min;
+        assert(n_min < n_max);
+        parameters[0] = n_min;
+        parameters[1] = n_max;
     }
-    inline bool testIntersect(Ray *r, float tmin, float tmax) {
-        for(int i = 0; i < 3; i++){
-            float invD = 1.0f / r->direction[i];
-            float t0 = (min[i] - r->origin[i]) * invD;
-            float t1 = (max[i] - r->origin[i]) * invD;
-            if(invD < 0.0f) {
-                std::swap(t0, t1);
-            }
-            tmin = t0 > tmin ? t0 : tmin;
-            tmax = t1 > tmax ? t1 : tmin;
-            if(tmax < tmin){
-                return false;
-            }
-        }
-        return true;
+    inline bool testIntersect(Ray *r, float t0, float t1) {
+        float tmin, tmax, tymin, tymax, tzmin, tzmax;
+       
+        tmin = (parameters[r->sign[0]].X - r->origin.X) * r->invDirection.X;
+        tmax = (parameters[1-r->sign[0]].X - r->origin.X) * r->invDirection.X;
+        tymin = (parameters[r->sign[1]].Y - r->origin.Y) * r->invDirection.Y;
+        tymax = (parameters[1-r->sign[1]].Y - r->origin.Y) * r->invDirection.Y;
+       
+        if ( (tmin > tymax) || (tymin > tmax) )
+            return false;
+        if (tymin > tmin)
+            tmin = tymin;
+        if (tymax < tmax)
+            tmax = tymax;
+        tzmin = (parameters[r->sign[2]].Z - r->origin.Z) * r->invDirection.Z;
+        tzmax = (parameters[1-r->sign[2]].Z - r->origin.Z) * r->invDirection.Z;
+        if ( (tmin > tzmax) || (tzmin > tmax) )
+            return false;
+        if (tzmin > tmin)
+            tmin = tzmin;
+        if (tzmax < tmax)
+            tmax = tzmax;
+        return ( (tmin < t1) && (tmax > t0) );
     }
 };
 
@@ -133,7 +155,8 @@ public:
         this->depth = parentDepth+1;
         this->boundingBox = Bounds(Vector3(boundingBoxArray->at(0),boundingBoxArray->at(1),boundingBoxArray->at(2)),Vector3(boundingBoxArray->at(3),boundingBoxArray->at(4),boundingBoxArray->at(5)));
         boundingBoxArray->erase(boundingBoxArray->begin(), boundingBoxArray->begin()+6);
-        if(this->depth >= maxDepth-1) {
+       
+        if(this->depth > maxDepth) {
             this->isLeaf = true;
             int sizeOfLeaf = leafSizeArray->front();
             leafSizeArray->pop_front();
@@ -152,7 +175,7 @@ public:
         }
     }
     inline bool intersects(Ray *testRay){
-        return boundingBox.testIntersect(testRay, 0, 10);
+        return boundingBox.testIntersect(testRay, 0, INFINITY);
     }
     inline bool getIsLeaf() {
         return isLeaf;
@@ -170,7 +193,7 @@ class GeomeTree {
     Node masterNode;
     inline GeomeTree() {};
     inline GeomeTree(int maxDepth,std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray) {
-        masterNode = *new Node(1,maxDepth,boundingBoxArray,triangleArray,leafSizeArray);
+        masterNode = *new Node(0,maxDepth,boundingBoxArray,triangleArray,leafSizeArray);
     };
     
     inline std::deque<Tri> getCandidates(Ray *testRay) {
@@ -186,15 +209,15 @@ class GeomeTree {
                     for(int i = 0; i < currentNode->getTri()->size();i++){
                         candidates->push_back(currentNode->getTri()->at(i));
                     }
-                    
                 }
-
             }else {
                 collision(currentNode->leftChild, testRay, candidates);
                 collision(currentNode->rightChild, testRay, candidates);
         
         }
-    }
+        }else{
+        }
+
 }
 };
 

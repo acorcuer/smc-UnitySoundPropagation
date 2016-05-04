@@ -249,19 +249,30 @@ namespace Spatializer
         float ga = phi * M_2_PI;
         Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
         
-        for(int i = 0; i < 10000; i++) {
+        for(int i = 0; i < 100; i++) {
             float lon = ga*i;
-            float lat = asinf(-1.0f + (2.0f * (i/10000.0f)));
+            float lat = asinf(-1.0f + (2.0f * (i/100.0f)));
             Vector3 directionVector = Vector3(cosf(lat) * cosf(lon), cosf(lat) * sinf(lon), sinf(lat));
             Vector3 positionVector = directionVector + sourcePos;
             Ray thisRay = Ray(positionVector, directionVector);
             std::deque<Tri> candidates = triangleTree->getCandidates(&thisRay);
+            if(candidates.size() != 0){
             direcs.push_back(thisRay.direction.X);
             direcs.push_back(thisRay.direction.Y);
             direcs.push_back(thisRay.direction.Z);
             origins.push_back(thisRay.origin.X);
             origins.push_back(thisRay.origin.Y);
             origins.push_back(thisRay.origin.Z);
+            }
+            std::stringstream sstr;
+            sstr << "Ray ";
+            sstr << i;
+            sstr << " needs to test ";
+            sstr << candidates.size();
+
+            std::string s1 = sstr.str();
+            DebugInUnity(std::string(s1));
+
 
         };
     };

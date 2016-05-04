@@ -118,8 +118,8 @@ public class meshTransport : MonoBehaviour {
 		debugNode = nodeList;
 		int numTris = inputTree.numTriangles ();
 		int numLeaves = inputTree.getLeafCount ();
-		int numNodes = (numLeaves * 2) - 1;
-		int depth = (int)Mathf.Sqrt ((numNodes + 1));
+		int numNodes = nodeList.Length;
+		int depth = (int)(Mathf.Log (numNodes) / Mathf.Log (2.0f));  
 		// init arrays to send to CPP, the binary tree has to be flattend into arrays
 		// for easier marshalling
 		float[] boundingBoxList = new float[numNodes*6];
@@ -158,6 +158,7 @@ public class meshTransport : MonoBehaviour {
 				}
 			}
 		}
+
 		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length, leafSizeList); 
 	}
 
