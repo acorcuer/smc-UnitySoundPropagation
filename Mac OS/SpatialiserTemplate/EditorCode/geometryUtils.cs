@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 
-// Disable warning, is a byproduct of using classes recursively as a datastructure (the leaves never get "used")
+// Disable warning, is a byproduct of using classes recursively as a datastructure (the leaves childeren never get "used")
 // The private field Node.leftChild is assigned but never used (lines 72 and 73)
 #pragma warning disable 0414 
 
@@ -43,7 +43,7 @@ public class GeomeTree {
 		// Create the master node, additonal nodes are recursively created under this one.
 		// Leaf count and nodeList are references as the recursive algorithm makes it
 		// difficult to store these accurately and safely (use of static is possible, but opens 
-		// up more issues)
+		// up more issues than it is worth)
 		masterNode = new Node (inputTriangles, dim, bucketSize,0,ref nodeList,ref leafCount);
 	}
 

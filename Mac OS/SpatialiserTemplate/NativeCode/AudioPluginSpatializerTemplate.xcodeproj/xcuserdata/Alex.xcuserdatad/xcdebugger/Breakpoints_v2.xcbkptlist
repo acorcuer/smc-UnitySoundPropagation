@@ -43,8 +43,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "105"
             endingLineNumber = "105"
-            landmarkName = "testIntersect(Ray *r, float tmin, float tmax)"
-            landmarkType = "5">
+            landmarkName = "class Bounds"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -59,8 +59,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "85"
             endingLineNumber = "85"
-            landmarkName = "setOrigin(Vector3 n_o)"
-            landmarkType = "5">
+            landmarkName = "class Ray"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -75,24 +75,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "233"
             endingLineNumber = "233"
-            landmarkName = "calcImpResponse(float* listenerMatrix,float* sourceMatrix)"
+            landmarkName = "marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[] )"
             landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "rayTraceUtil.h"
-            timestampString = "483626093.284177"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "162"
-            endingLineNumber = "162"
-            landmarkName = "getTri()"
-            landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -107,7 +91,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "255"
             endingLineNumber = "255"
-            landmarkName = "ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)"
+            landmarkName = "calcImpResponse(float* listenerMatrix,float* sourceMatrix)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -123,8 +107,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "181"
             endingLineNumber = "181"
-            landmarkName = "class GeomeTree"
-            landmarkType = "3">
+            landmarkName = "numTri()"
+            landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>
