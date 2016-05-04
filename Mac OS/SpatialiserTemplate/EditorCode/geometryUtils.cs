@@ -89,6 +89,24 @@ public class Node {
 	}
 
 	private void resizeBB(triangle[] inputTriangles) {
+		float avgX = 0;
+		float avgY = 0;
+		float avgZ = 0;
+		for (int i = 0; i < inputTriangles.Length; i++) {
+			avgX += inputTriangles [i].P1.x;
+			avgX += inputTriangles [i].P2.x;
+			avgX += inputTriangles [i].P3.x;
+			avgY += inputTriangles [i].P1.y;
+			avgY += inputTriangles [i].P2.y;
+			avgY += inputTriangles [i].P3.y;
+			avgZ += inputTriangles [i].P1.z;
+			avgZ += inputTriangles [i].P2.z;
+			avgZ += inputTriangles [i].P3.z;
+		}
+		avgX /= (inputTriangles.Length * 3);
+		avgY /= (inputTriangles.Length * 3);
+		avgZ /= (inputTriangles.Length * 3);
+		boundingBox.center = new Vector3 (avgX, avgY, avgZ);
 		for (int i = 0; i < inputTriangles.Length; i++) {
 			boundingBox.Encapsulate (inputTriangles [i].P1);
 			boundingBox.Encapsulate (inputTriangles [i].P2);
