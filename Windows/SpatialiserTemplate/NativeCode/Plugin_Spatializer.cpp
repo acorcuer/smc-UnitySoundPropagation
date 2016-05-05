@@ -1,7 +1,15 @@
 // Please note that this will only work on Unity 5.2 or higher.
 
+#define _USE_MATH_DEFINES
+
+
 #include "AudioPluginUtil.h"
+#include "rayTraceUtil.h"
+#include <cmath>
 #include <string>
+#include <vector>
+#include <sstream>
+#include <deque>
 
 
 extern float hrtfSrcData[];
@@ -9,36 +17,12 @@ extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
-
-    //{ Start Interop Functions
+    GeomeTree* triangleTree;
+    bool treeInit = false;
+    bool newTree = false;
+    std::vector<float> direcs;
+    std::vector<float> origins;
     
-    #if UNITY_WIN
-    #define ABA_API __declspec(dllexport)
-    #else
-    #define ABA_API
-    #endif
-    
-    typedef void(*DebugCallback) (const char *str);
-    DebugCallback gDebugCallback;
-    
-    extern "C" ABA_API void RegisterDebugCallback (DebugCallback callback)
-    {
-        if (callback)
-        {
-            gDebugCallback = callback;
-        }
-    }
-    
-    void DebugInUnity(std::string message)
-    {
-        if (gDebugCallback)
-        {
-            gDebugCallback(message.c_str());
-        }
-    }
-    
-    // End Interop Functions}
-   
     enum
     {
         P_AUDIOSRCATTN,
@@ -46,11 +30,11 @@ namespace Spatializer
         P_CUSTOMFALLOFF,
         P_NUM
     };
-
+    
     const int HRTFLEN = 512;
-
+    
     const float GAINCORRECTION = 2.0f;
-
+    
     class HRTFData
     {
         struct CircleCoeffs
@@ -58,7 +42,7 @@ namespace Spatializer
             int numangles;
             float* hrtf;
             float* angles;
-
+            
             void GetHRTF(UnityComplexNumber* h, float angle, float mix)
             {
                 int index1 = 0;
@@ -79,10 +63,10 @@ namespace Spatializer
                 }
             }
         };
-
+        
     public:
         CircleCoeffs hrtfChannel[2][14];
-
+        
     public:
         HRTFData()
         {
@@ -115,9 +99,9 @@ namespace Spatializer
             }
         }
     };
-
+    
     static HRTFData sharedData;
-
+    
     struct InstanceChannel
     {
         UnityComplexNumber h[HRTFLEN * 2];
@@ -125,24 +109,24 @@ namespace Spatializer
         UnityComplexNumber y[HRTFLEN * 2];
         float buffer[HRTFLEN * 2];
     };
-
+    
     struct EffectData
     {
         float p[P_NUM];
         InstanceChannel ch[2];
     };
-
+    
+    
     inline bool IsHostCompatible(UnityAudioEffectState* state)
     {
         // Somewhat convoluted error checking here because hostapiversion is only supported from SDK version 1.03 (i.e. Unity 5.2) and onwards.
         return
-            state->structsize >= sizeof(UnityAudioEffectState) &&
-            state->hostapiversion >= UNITY_AUDIO_PLUGIN_API_VERSION;
+        state->structsize >= sizeof(UnityAudioEffectState) &&
+        state->hostapiversion >= UNITY_AUDIO_PLUGIN_API_VERSION;
     }
-
+    
     int InternalRegisterEffectDefinition(UnityAudioEffectDefinition& definition)
     {
-
         int numparams = P_NUM;
         definition.paramdefs = new UnityAudioParameterDefinition[numparams];
         RegisterParameter(definition, "AudioSrc Attn", "", 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, P_AUDIOSRCATTN, "AudioSource distance attenuation");
@@ -151,36 +135,41 @@ namespace Spatializer
         definition.flags |= UnityAudioEffectDefinitionFlags_IsSpatializer;
         return numparams;
     }
-
+    
     static UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK DistanceAttenuationCallback(UnityAudioEffectState* state, float distanceIn, float attenuationIn, float* attenuationOut)
     {
         EffectData* data = state->GetEffectData<EffectData>();
         *attenuationOut =
-            data->p[P_AUDIOSRCATTN] * attenuationIn +
-            data->p[P_FIXEDVOLUME] +
-            data->p[P_CUSTOMFALLOFF] * (1.0f / FastMax(1.0f, distanceIn));
+        data->p[P_AUDIOSRCATTN] * attenuationIn +
+        data->p[P_FIXEDVOLUME] +
+        data->p[P_CUSTOMFALLOFF] * (1.0f / FastMax(1.0f, distanceIn));
         return UNITY_AUDIODSP_OK;
     }
-
+    
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK CreateCallback(UnityAudioEffectState* state)
     {
+        origins.clear();
+        direcs.clear();
         EffectData* effectdata = new EffectData;
         memset(effectdata, 0, sizeof(EffectData));
         state->effectdata = effectdata;
         if (IsHostCompatible(state))
             state->spatializerdata->distanceattenuationcallback = DistanceAttenuationCallback;
         InitParametersFromDefinitions(InternalRegisterEffectDefinition, effectdata->p);
-                DebugInUnity(std::string("Spatializer Plugin Initialized"));
+        DebugInUnity(std::string("Spatialiser plugin loaded sucessfully"));
         return UNITY_AUDIODSP_OK;
     }
-
+    
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ReleaseCallback(UnityAudioEffectState* state)
     {
+        DebugInUnity(std::string("Spatailiser plugin released:"));
         EffectData* data = state->GetEffectData<EffectData>();
         delete data;
         return UNITY_AUDIODSP_OK;
     }
+    
 
+    
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK SetFloatParameterCallback(UnityAudioEffectState* state, int index, float value)
     {
         EffectData* data = state->GetEffectData<EffectData>();
@@ -189,7 +178,7 @@ namespace Spatializer
         data->p[index] = value;
         return UNITY_AUDIODSP_OK;
     }
-
+    
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK GetFloatParameterCallback(UnityAudioEffectState* state, int index, float* value, char *valuestr)
     {
         EffectData* data = state->GetEffectData<EffectData>();
@@ -201,12 +190,12 @@ namespace Spatializer
             valuestr[0] = 0;
         return UNITY_AUDIODSP_OK;
     }
-
+    
     int UNITY_AUDIODSP_CALLBACK GetFloatBufferCallback(UnityAudioEffectState* state, const char* name, float* buffer, int numsamples)
     {
         return UNITY_AUDIODSP_OK;
     }
-
+    
     static void GetHRTF(int channel, UnityComplexNumber* h, float azimuth, float elevation)
     {
         float e = FastClip(elevation * 0.1f + 4, 0, 12);
@@ -222,7 +211,72 @@ namespace Spatializer
         sharedData.hrtfChannel[channel][index1].GetHRTF(h, azimuth, 1.0f);
         sharedData.hrtfChannel[channel][index2].GetHRTF(h, azimuth, e - f);
     }
+    
+    extern "C" ABA_API void getDirec(long* len, float **data){
+        *len = direcs.size();
+        auto size = (*len)*sizeof(float);
+        *data = static_cast<float*>(CoTaskMemAlloc(size));
+        memcpy(*data, direcs.data(), size);
+    }
+    extern "C" ABA_API void getOrig(long* len, float **data){
+        *len = origins.size();
+        auto size = (*len)*sizeof(float);
+        *data = static_cast<float*>(CoTaskMemAlloc(size));
+        memcpy(*data, origins.data(), size);
+    }
+    extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[] ) {
+        treeInit = false;
+        std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
+        std::deque<float> triangleList(triangles, triangles + tl);
+        std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
+        
+        std::stringstream sstr;
+        sstr << "Tree sucessfully recreated with ";
+        sstr << ((triangleList.size()/4)/3);
+        sstr << " triangles ";
+        std::string s1 = sstr.str();
+        
+        triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList);
+        treeInit = true;
+        newTree = true;
+        
+        DebugInUnity(std::string(s1));
+    }
 
+    void calcImpResponse(float* listenerMatrix,float* sourceMatrix) {
+        Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
+        // We define here the number of rays of the source nRays = sqrt(totalNumberOfRays)
+		int nRays = 100;
+        for(int i = 0; i < nRays; i++) {
+			for (int j = 0; j < nRays; j++) {
+				float rnd1 = rand() % 2;
+				float rnd2 = rand() % 2;
+				float l = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*cos(2 * M_PI*((j + rnd2) / nRays));
+				float m = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*sin(2 * M_PI*((j + rnd2) / nRays));
+				float n = 1 - 2 * ((i + rnd1) / nRays);
+				Vector3 directionVector = Vector3(l, m, n);
+				Vector3 positionVector = directionVector + sourcePos;
+				Ray thisRay = Ray(positionVector, directionVector);
+				std::deque<Tri> candidates = triangleTree->getCandidates(&thisRay);
+				//       if(candidates.size() != 0){
+				direcs.push_back(thisRay.direction.X);
+				direcs.push_back(thisRay.direction.Y);
+				direcs.push_back(thisRay.direction.Z);
+				origins.push_back(thisRay.origin.X);
+				origins.push_back(thisRay.origin.Y);
+				origins.push_back(thisRay.origin.Z);
+				//   }
+				std::stringstream sstr;
+				sstr << "Ray ";
+				sstr << i;
+				sstr << " needs to test ";
+				sstr << candidates.size();
+				std::string s1 = sstr.str();
+				DebugInUnity(std::string(s1));
+			};
+        };
+    };
+    
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
     {
         // Check that I/O formats are right and that the host API supports this feature
@@ -232,35 +286,44 @@ namespace Spatializer
             memcpy(outbuffer, inbuffer, length * outchannels * sizeof(float));
             return UNITY_AUDIODSP_OK;
         }
-
+        
         EffectData* data = state->GetEffectData<EffectData>();
-
+        
         static const float kRad2Deg = 180.0f / kPI;
-
+        
         float* m = state->spatializerdata->listenermatrix;
         float* s = state->spatializerdata->sourcematrix;
-
+        
+        if (treeInit) {
+            if(newTree){
+            DebugInUnity(std::string("recalculating impulse response"));
+                calcImpResponse(state->spatializerdata->listenermatrix,state->spatializerdata->sourcematrix);
+            newTree = false;
+            }
+        }
+        
+        //&data->p[P_NUMRAYS]
+        
         // Currently we ignore source orientation and only use the position
         float px = s[12];
         float py = s[13];
         float pz = s[14];
-
+        
         float dir_x = m[0] * px + m[4] * py + m[8] * pz + m[12];
         float dir_y = m[1] * px + m[5] * py + m[9] * pz + m[13];
         float dir_z = m[2] * px + m[6] * py + m[10] * pz + m[14];
-
+        
         float azimuth = (fabsf(dir_z) < 0.001f) ? 0.0f : atan2f(dir_x, dir_z);
         if (azimuth < 0.0f)
             azimuth += 2.0f * kPI;
         azimuth = FastClip(azimuth * kRad2Deg, 0.0f, 360.0f);
-
+        
         float elevation = atan2f(dir_y, sqrtf(dir_x * dir_x + dir_z * dir_z) + 0.001f) * kRad2Deg;
         float spatialblend = state->spatializerdata->spatialblend;
         float reverbmix = state->spatializerdata->reverbzonemix;
-
+        
         GetHRTF(0, data->ch[0].h, azimuth, elevation);
         GetHRTF(1, data->ch[1].h, azimuth, elevation);
-
         // From the FMOD documentation:
         //   A spread angle of 0 makes the stereo sound mono at the point of the 3D emitter.
         //   A spread angle of 90 makes the left part of the stereo sound place itself at 45 degrees to the left and the right part 45 degrees to the right.
@@ -270,7 +333,7 @@ namespace Spatializer
         // That way we can still use it to control how the source signal downmixing takes place.
         float spread = cosf(state->spatializerdata->spread * kPI / 360.0f);
         float spreadmatrix[2] = { 2.0f - spread, spread };
-
+        
         float* reverb = reverbmixbuffer;
         for (int sampleOffset = 0; sampleOffset < length; sampleOffset += HRTFLEN)
         {
@@ -278,9 +341,10 @@ namespace Spatializer
             {
                 // stereopan is in the [-1; 1] range, this acts the way fmod does it for stereo
                 float stereopan = 1.0f - ((c == 0) ? FastMax(0.0f, state->spatializerdata->stereopan) : FastMax(0.0f, -state->spatializerdata->stereopan));
-
+                
                 InstanceChannel& ch = data->ch[c];
-
+                
+                
                 for (int n = 0; n < HRTFLEN; n++)
                 {
                     float left  = inbuffer[n * 2];
@@ -288,20 +352,20 @@ namespace Spatializer
                     ch.buffer[n] = ch.buffer[n + HRTFLEN];
                     ch.buffer[n + HRTFLEN] = left * spreadmatrix[c] + right * spreadmatrix[1 - c];
                 }
-
+                
                 for (int n = 0; n < HRTFLEN * 2; n++)
                 {
                     ch.x[n].re = ch.buffer[n];
                     ch.x[n].im = 0.0f;
                 }
-
+                
                 FFT::Forward(ch.x, HRTFLEN * 2, false);
-
+                
                 for (int n = 0; n < HRTFLEN * 2; n++)
                     UnityComplexNumber::Mul<float, float, float>(ch.x[n], ch.h[n], ch.y[n]);
-
+                
                 FFT::Backward(ch.y, HRTFLEN * 2, false);
-
+                
                 for (int n = 0; n < HRTFLEN; n++)
                 {
                     float s = inbuffer[n * 2 + c] * stereopan;
@@ -310,12 +374,13 @@ namespace Spatializer
                     reverb[n * 2 + c] += y * reverbmix;
                 }
             }
-
+            
             inbuffer += HRTFLEN * 2;
             outbuffer += HRTFLEN * 2;
             reverb += HRTFLEN * 2;
         }
-
+        
         return UNITY_AUDIODSP_OK;
-    }
+   }
+
 }
