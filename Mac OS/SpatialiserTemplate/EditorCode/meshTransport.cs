@@ -21,7 +21,7 @@ public class meshTransport : MonoBehaviour {
 	private Vector3[] rayOrigins, rayDirections;
 
 	[DllImport("AudioPluginSpatializerTemplate", CallingConvention = CallingConvention.StdCall)]
-	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes);
+	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes,int tidl,int[] triangleIds);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void getDirec (out int length, out IntPtr array);
@@ -57,6 +57,7 @@ public class meshTransport : MonoBehaviour {
 			GeomeTree KDTree = calcTree ();
 			sendTree (KDTree);
 			rescanFlag = false;
+
 		}
 		if (getRays) {
 			float[] tempO = marshalOrig ();
@@ -85,9 +86,27 @@ public class meshTransport : MonoBehaviour {
 	Mesh combineMeshes(GameObject[] includedObjects) {
 		CombineInstance[] combine = new CombineInstance[includedObjects.Length];
 		for (int i = 0; i < includedObjects.Length; i++) {
-			MeshFilter thisMeshfilt = includedObjects [i].GetComponent<MeshFilter> ();
-			combine [i].mesh = thisMeshfilt.sharedMesh;
-			combine[i].transform = thisMeshfilt.transform.localToWorldMatrix;
+			if (includedObjects [i].GetComponent<AudioListener>() != null) {
+				includedObjects [i].AddComponent<MeshFilter>();
+				MeshFilter thisMeshfilt = includedObjects [i].GetComponent<MeshFilter> ();
+				thisMeshfilt.sharedMesh = ((GameObject)Resources.Load ("Sphere")).GetComponent<MeshFilter> ().sharedMesh;
+				Color[] colors = new Color[thisMeshfilt.sharedMesh.vertices.Length];
+				for(int j =0;j < colors.Length;j++) {
+					colors[j] = new Color(1,1,1);
+				}
+				thisMeshfilt.sharedMesh.colors = colors;
+				combine [i].mesh = thisMeshfilt.sharedMesh;
+				combine [i].transform = thisMeshfilt.transform.localToWorldMatrix;
+			} else {
+				MeshFilter thisMeshfilt = includedObjects [i].GetComponent<MeshFilter> ();
+				Color[] colors = new Color[thisMeshfilt.sharedMesh.vertices.Length];
+				for(int j =0;j < colors.Length;j++) {
+					colors[j] = new Color(0,0,0);
+				}
+				thisMeshfilt.sharedMesh.colors = colors;
+				combine [i].mesh = thisMeshfilt.sharedMesh;
+				combine [i].transform = thisMeshfilt.transform.localToWorldMatrix;
+			}
 		}
 		transform.GetComponent<MeshFilter>().mesh = new Mesh();
 		transform.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
@@ -108,7 +127,8 @@ public class meshTransport : MonoBehaviour {
 			Vector3 P2 = transform.TransformPoint(vertVecs [triIdx[(i*3)+1]]);
 			Vector3 P3 = transform.TransformPoint(vertVecs [triIdx[(i*3)+2]]);
 			Vector3 faceNorm = Vector3.Cross((P2 - P1),(P3 - P1));
-			outputArray[i] = new triangle(P1,P2,P3,faceNorm);
+			int listenerTag = inputMesh.colors [triIdx[i*3]].Equals (new Color (1, 1, 1)) ? 1: 0;
+			outputArray[i] = new triangle(P1,P2,P3,faceNorm,listenerTag);
 		}
 		return outputArray;
 	}
@@ -126,6 +146,7 @@ public class meshTransport : MonoBehaviour {
 		int[] leafSizeList = new int[numLeaves];
 		int leafSizeIdx = 0;
 		float[] triangleList = new float[numTris * 12];
+		int[] triangleIdList = new int[numTris];
 		int triListIdx = 0;
 		for(int i = 0; i < nodeList.Length; i++) {
 			Bounds tempBounds = nodeList [i].getBB ();
@@ -141,7 +162,7 @@ public class meshTransport : MonoBehaviour {
 				triangle[] nodeTriangles = nodeList [i].getTriangles();
 				leafSizeList [leafSizeIdx++] = nodeTriangles.Length;
 				for (int j = 0; j < nodeTriangles.Length; j++) {
-						
+					triangleIdList [triListIdx] = nodeTriangles [j].isListener;
 					triangleList [triListIdx*12] = nodeTriangles [j].P1.x;
 					triangleList [(triListIdx*12)+1] = nodeTriangles [j].P1.y;
 					triangleList [(triListIdx*12)+2] = nodeTriangles [j].P1.z;
@@ -158,8 +179,7 @@ public class meshTransport : MonoBehaviour {
 				}
 			}
 		}
-
-		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length, leafSizeList); 
+		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length,leafSizeList,triangleIdList.Length,triangleIdList); 
 	}
 
 	void OnDrawGizmos() {
@@ -183,8 +203,9 @@ public class meshTransport : MonoBehaviour {
 		Gizmos.color = Color.yellow;
 		if (showRays) {
 			for (int i = 0; i < rayDirections.Length; i++) {
-				Ray tempRay = new Ray (rayOrigins [i], rayDirections [i]);
-				Gizmos.DrawRay (tempRay);
+				Gizmos.DrawLine (rayOrigins [i], rayOrigins [i] + (rayDirections [i] * 10.0f));
+//				Ray tempRay = new Ray (rayOrigins [i],  rayDirections [i]);
+//				Gizmos.DrawRay (tempRay);
 			}
 		}
 	}

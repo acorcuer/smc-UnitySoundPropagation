@@ -11,20 +11,22 @@ using System.Collections.Generic;
 public class triangle {
 	// X,Y,Z of 3 triangle corners and the face normal 
 	public Vector3 P1,P2,P3,facenorm;
+	public int isListener;
 	public triangle() {}
-	public triangle(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3, Vector3 n_fn){
+	public triangle(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3, Vector3 n_fn,int n_ls){
 		P1 = n_p1;
 		P2 = n_p2;
 		P3 = n_p3;
 		facenorm = n_fn;
+		isListener = n_ls;
+
 	}
-
-	public void setData(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3,Vector3 n_fn) {
+	public void setData(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3,Vector3 n_fn,int n_ls) {
 		P1 = n_p1;
 		P2 = n_p2;
 		P3 = n_p3;
 		facenorm = n_fn;
-
+		isListener = n_ls;
 	}
 }
 	
