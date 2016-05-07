@@ -24,7 +24,8 @@ namespace Spatializer
     bool newTree = false;
     std::vector<float> direcs;
     std::vector<float> origins;
-    raySphere startingRays = *new raySphere(100);
+    std::vector<float> lengths;
+    raySphere startingRays = *new raySphere(10);
     
     enum
     {
@@ -227,6 +228,12 @@ namespace Spatializer
         *data = static_cast<float*>(malloc(size));
         memcpy(*data, origins.data(), size);
     }
+    extern "C" ABA_API void getLen(long* len, float **data){
+        *len = lengths.size();
+        auto size = (*len)*sizeof(float);
+        *data = static_cast<float*>(malloc(size));
+        memcpy(*data, lengths.data(), size);
+    }
     extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
         treeInit = false;
         
@@ -244,7 +251,13 @@ namespace Spatializer
         
         // For each ray in the raylist, itterate backwards to avoid indexing problems when removing
         // from the list
-        for (int i = inputRayList->size(); i-- > 0;) {
+        for (int i = inputRayList->size()-1; i >= 0; i--) {
+            
+            std::stringstream sstr;
+            sstr << inputRayList->at(i).direction.length();
+            std::string s1 = sstr.str();
+            DebugInUnity(s1);
+            
             // Get list of triangles the ray might intersect with according to bounding heirarchy
             std::deque<Tri> candidates = triangleTree->getCandidates(&inputRayList->at(i));
             // If candidate list has been populated test the ray against each, otherwise delete!
@@ -265,6 +278,7 @@ namespace Spatializer
                 // if minimum distance is not infinity (therefore no valid intersections)
                 // update the ray
                 if(min != INFINITY){
+                    
                     direcs.push_back(inputRayList->at(i).direction.X);
                     direcs.push_back(inputRayList->at(i).direction.Y);
                     direcs.push_back(inputRayList->at(i).direction.Z);
@@ -273,7 +287,7 @@ namespace Spatializer
                     origins.push_back(inputRayList->at(i).origin.Z);
                     
                     // Update origin
-                    inputRayList->at(i).origin + inputRayList->at(i).origin + (inputRayList->at(i).direction*min);
+                    inputRayList->at(i).origin = inputRayList->at(i).origin + (inputRayList->at(i).direction * min);
                     // Update number of reflections
                     inputRayList->at(i).numReflecs++;
                     // Update path length

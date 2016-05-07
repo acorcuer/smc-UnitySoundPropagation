@@ -46,6 +46,10 @@ public:
     inline void setPos(float n_x, float n_y, float n_z)
     {X = n_x; Y = n_y; Z = n_z;}
     
+    inline float length() {return sqrtf((X*X) + (Y*Y) + (Z*Z));}
+    
+    inline void  Normalize() { float l = 1.0f / length(); X *= l; Y *= l; Z *= l; }
+    
     inline Vector3 operator + (const Vector3& A) const
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
     
@@ -58,10 +62,10 @@ public:
     inline float Dot( const Vector3& A ) const
     { return A.X*X + A.Y*Y + A.Z*Z; }
     
-    inline Vector3 cross(const Vector3 &A) const
+    inline Vector3 cross(const Vector3& A) const
     {return Vector3(Y * A.Z - Z * A.Y,Z * A.X - X * A.Z,X * A.Y - Y * A.X);}
     
-    inline bool operator<(const Vector3 &A) const {
+    inline bool operator<(const Vector3& A) const {
         return (X < A[0] && Y < A[1] && Z < A[2]);
     }
     inline float operator [] (const int& A) const{
@@ -118,7 +122,8 @@ public:
     invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
     }
     inline void updateDirec(Vector3 normal) {
-        direction = direction - (normal * (2.0f * direction.Dot(normal)));
+        direction = direction - (normal*(2.0f*direction.Dot(normal)));
+        direction.Normalize();
     }
     inline bool testIntersect(Tri *tri,float &t,float &u, float&v){
         Vector3 v0v1 = tri->P2 - tri->P1;

@@ -28,6 +28,8 @@ public class meshTransport : MonoBehaviour {
 	private static extern void getDirec (out int length, out IntPtr array);
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void getOrig (out int length, out IntPtr array);
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void getLen (out int length, out IntPtr array);
 
 	private float[] marshalOrig() {
 		int arraySize;
@@ -42,6 +44,15 @@ public class meshTransport : MonoBehaviour {
 		int arraySize;
 		IntPtr arrayPtr;
 		getDirec (out arraySize,out arrayPtr);
+		float[] theArray =  new float[arraySize];
+		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
+		Marshal.FreeCoTaskMem (arrayPtr);
+		return theArray;
+	}
+	private float[] marshalLen() {
+		int arraySize;
+		IntPtr arrayPtr;
+		getOrig (out arraySize,out arrayPtr);
 		float[] theArray =  new float[arraySize];
 		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
 		Marshal.FreeCoTaskMem (arrayPtr);
@@ -63,6 +74,7 @@ public class meshTransport : MonoBehaviour {
 		if (getRays) {
 			float[] tempO = marshalOrig ();
 			float[] tempD = marshalDirec ();
+			rayLengths = marshalLen ();
 			rayOrigins = new Vector3[tempO.Length / 3];
 			rayDirections = new Vector3[tempD.Length / 3];
 
