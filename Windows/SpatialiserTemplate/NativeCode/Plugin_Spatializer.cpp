@@ -17,11 +17,13 @@ extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
+    
     GeomeTree* triangleTree;
     bool treeInit = false;
     bool newTree = false;
     std::vector<float> direcs;
     std::vector<float> origins;
+    raySphere startingRays = *new raySphere(100);
     
     enum
     {
@@ -224,58 +226,65 @@ namespace Spatializer
         *data = static_cast<float*>(CoTaskMemAlloc(size));
         memcpy(*data, origins.data(), size);
     }
-    extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[] ) {
+    extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
         treeInit = false;
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
-        
-        std::stringstream sstr;
-        sstr << "Tree sucessfully recreated with ";
-        sstr << ((triangleList.size()/4)/3);
-        sstr << " triangles ";
-        std::string s1 = sstr.str();
-        
-        triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList);
+        std::deque<int> triangleIdList(triangleIds, triangleIds + tidl);
+        triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList,&triangleIdList);
         treeInit = true;
         newTree = true;
-        
-        DebugInUnity(std::string(s1));
     }
+
+    std::vector<Ray> shootRays(std::vector<Ray>* rayList){
+        std::vector<Ray> outputRays;
+        for(int i = 0; i < rayList->size();i++){
+        std::deque<Tri> candidates = triangleTree->getCandidates(&rayList->at(i));
+        if(candidates.size() != 0){
+            float min = 100;
+            int minDistIdx = 0;
+            for(int j = 0; j < candidates.size(); j++) {
+                float t,u,v;
+                bool intersectResult = rayList->at(i).testIntersect(&candidates[j], t, u, v);
+                if(intersectResult){
+                    if(t < min) {
+                        minDistIdx = j;
+                    }
+                }
+            }
+           // rayList->at(i).origin + rayList->at(i).origin + (rayList->at(i).direction*min);
+            if(candidates[minDistIdx].isListener){
+                rayList->at(i).pathLength += min;
+           //     rayList->at(i).origin + rayList->at(i).origin + (rayList->at(i).direction*min);
+                outputRays.push_back(rayList->at(i));
+			}
+			else {
+				rayList->at(i).pathLength += min;
+				// We update the origin of the new ray which is the intersection with the object
+				rayList->at(i).origin = rayList->at(i).origin + (rayList->at(i).direction*min);
+				// We update the direction of the ray (specular)
+				// float in_angle = rayList->at(i).getAngle(candidates[minDistIdx].faceNorm); // Incident angle
+				rayList->at(i).direction = rayList->at(i).getNewDirection(candidates[minDistIdx].faceNorm);
+				rayList->at(i).addLength(min); // Adding distance
+				outputRays.push_back(rayList->at(i));
+				DebugInUnity(std::string("Reflection!"));
+			}
+            
+        }
+        }
+        return outputRays ;
+    }
+    
+//    Vector3 newPos = rayList->at(i).origin + (rayList->at(i).direction*t);
 
     void calcImpResponse(float* listenerMatrix,float* sourceMatrix) {
         Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
-        // We define here the number of rays of the source nRays = sqrt(totalNumberOfRays)
-		int nRays = 100;
-        for(int i = 0; i < nRays; i++) {
-			for (int j = 0; j < nRays; j++) {
-				float rnd1 = rand() % 2;
-				float rnd2 = rand() % 2;
-				float l = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*cos(2 * M_PI*((j + rnd2) / nRays));
-				float m = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*sin(2 * M_PI*((j + rnd2) / nRays));
-				float n = 1 - 2 * ((i + rnd1) / nRays);
-				Vector3 directionVector = Vector3(l, m, n);
-				Vector3 positionVector = directionVector + sourcePos;
-				Ray thisRay = Ray(positionVector, directionVector);
-				std::deque<Tri> candidates = triangleTree->getCandidates(&thisRay);
-				//       if(candidates.size() != 0){
-				direcs.push_back(thisRay.direction.X);
-				direcs.push_back(thisRay.direction.Y);
-				direcs.push_back(thisRay.direction.Z);
-				origins.push_back(thisRay.origin.X);
-				origins.push_back(thisRay.origin.Y);
-				origins.push_back(thisRay.origin.Z);
-				//   }
-				std::stringstream sstr;
-				sstr << "Ray ";
-				sstr << i;
-				sstr << " needs to test ";
-				sstr << candidates.size();
-				std::string s1 = sstr.str();
-				DebugInUnity(std::string(s1));
-			};
-        };
+        std::vector<Ray> rays = startingRays.getRayList(sourcePos);
+        std::vector<Ray> sucessfullRays = shootRays(&rays);
     };
+    
+
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
     {

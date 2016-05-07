@@ -1,10 +1,12 @@
 ﻿  Plugin_Spatializer.cpp
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(187): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(216): warning C4267: '=': conversion from 'size_t' to 'long', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(222): warning C4267: '=': conversion from 'size_t' to 'long', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(252): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(253): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(254): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(255): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(338): warning C4018: '<': signed/unsigned mismatch
-  AudioPluginSpatializerTemplate.vcxproj -> C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\NativeCode\AudioPluginSpatializerTemplate\x64\Debug\AudioPluginSpatializerTemplate.dll
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(35): warning C4305: 'initializing': truncation from 'double' to 'float'
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(229): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(269): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(270): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(273): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(274): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializer.cpp(218): warning C4267: '=': conversion from 'size_t' to 'long', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializer.cpp(224): warning C4267: '=': conversion from 'size_t' to 'long', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializer.cpp(347): warning C4018: '<': signed/unsigned mismatch
+     Creating library C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\0705\NativeCode\AudioPluginSpatializerTemplate\x64\Debug\AudioPluginSpatializerTemplate.lib and object C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\0705\NativeCode\AudioPluginSpatializerTemplate\x64\Debug\AudioPluginSpatializerTemplate.exp
+  AudioPluginSpatializerTemplate.vcxproj -> C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\0705\NativeCode\AudioPluginSpatializerTemplate\x64\Debug\AudioPluginSpatializerTemplate.dll
