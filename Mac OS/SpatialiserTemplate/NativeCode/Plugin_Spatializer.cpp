@@ -17,7 +17,8 @@ extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
-    
+    const int maxPathLength = 100;
+    const int maxNumReflecs = 100;
     GeomeTree* triangleTree;
     bool treeInit = false;
     bool newTree = false;
@@ -170,7 +171,7 @@ namespace Spatializer
         return UNITY_AUDIODSP_OK;
     }
     
-
+    
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK SetFloatParameterCallback(UnityAudioEffectState* state, int index, float value)
     {
@@ -228,6 +229,7 @@ namespace Spatializer
     }
     extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
         treeInit = false;
+        
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
@@ -235,47 +237,85 @@ namespace Spatializer
         triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList,&triangleIdList);
         treeInit = true;
         newTree = true;
+        
     }
-
-    std::vector<Ray> shootRays(std::vector<Ray>* rayList){
-        std::vector<Ray> outputRays;
-        for(int i = 0; i < rayList->size();i++){
-        std::deque<Tri> candidates = triangleTree->getCandidates(&rayList->at(i));
-        if(candidates.size() != 0){
-            float min;
-            int minDistIdx = 0;
-            for(int j = 0; j < candidates.size(); j++) {
-                float t,u,v;
-                bool intersectResult = rayList->at(i).testIntersect(&candidates[j], t, u, v);
-                if(intersectResult){
-                    if(t < min) {
-                        minDistIdx = j;
+    
+    void shootRays(std::vector<Ray> *inputRayList,std::vector<Ray> *outputRayList){
+        
+        // For each ray in the raylist, itterate backwards to avoid indexing problems when removing
+        // from the list
+        for (int i = inputRayList->size(); i-- > 0;) {
+            // Get list of triangles the ray might intersect with according to bounding heirarchy
+            std::deque<Tri> candidates = triangleTree->getCandidates(&inputRayList->at(i));
+            // If candidate list has been populated test the ray against each, otherwise delete!
+            if(candidates.size() != 0) {
+                float min = INFINITY;
+                int minDistIdx = 0;
+                for(int j = 0; j < candidates.size();j++){
+                    float t,u,v;
+                    bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], t, u, v);
+          
+                    if(intersectResult){
+                        if(t < min) {
+                            min = t;
+                            minDistIdx = j;
+                        }
                     }
                 }
+                // if minimum distance is not infinity (therefore no valid intersections)
+                // update the ray
+                if(min != INFINITY){
+                    direcs.push_back(inputRayList->at(i).direction.X);
+                    direcs.push_back(inputRayList->at(i).direction.Y);
+                    direcs.push_back(inputRayList->at(i).direction.Z);
+                    origins.push_back(inputRayList->at(i).origin.X);
+                    origins.push_back(inputRayList->at(i).origin.Y);
+                    origins.push_back(inputRayList->at(i).origin.Z);
+                    
+                    // Update origin
+                    inputRayList->at(i).origin + inputRayList->at(i).origin + (inputRayList->at(i).direction*min);
+                    // Update number of reflections
+                    inputRayList->at(i).numReflecs++;
+                    // Update path length
+                    inputRayList->at(i).pathLength += min;
+                    //Update angle
+                    inputRayList->at(i).updateDirec(candidates[minDistIdx].faceNorm);
+                    
+                    if(candidates[minDistIdx].isListener){
+                        outputRayList->push_back(inputRayList->at(i));
+                        inputRayList->erase(inputRayList->begin()+i);
+                    }else{
+                        if(inputRayList->at(i).numReflecs >= maxNumReflecs ||inputRayList->at(i).pathLength >= maxPathLength){
+                            inputRayList->erase(inputRayList->begin()+i);
+                        }
+                    }
+                }else {
+                    inputRayList->erase(inputRayList->begin()+i);
+                }
+            }else {
+                inputRayList->erase(inputRayList->begin()+i);
             }
-            rayList->at(i).origin + rayList->at(i).origin + (rayList->at(i).direction*min);
-
-//            if(candidates[minDistIdx].isListener){
-//                rayList->at(i).pathLength += min;
-//                rayList->at(i).origin + rayList->at(i).origin + (rayList->at(i).direction*min);
-//                outputRays.push_back(rayList->at(i));
-//            }
-            
         }
+        if(inputRayList->size() != 0) {
+            shootRays(inputRayList, outputRayList);
         }
-        return outputRays ;
     }
     
-//    Vector3 newPos = rayList->at(i).origin + (rayList->at(i).direction*t);
-
     
     void calcImpResponse(float* listenerMatrix,float* sourceMatrix) {
+        
         Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
         std::vector<Ray> rays = startingRays.getRayList(sourcePos);
-        std::vector<Ray> sucessfullRays = shootRays(&rays);
+        std::vector<Ray> sucessfullRays;
+        shootRays(&rays,&sucessfullRays);
+        std::stringstream sstr;
+        sstr << sucessfullRays.size();
+        sstr << " sucessfull rays";
+        std::string s1 = sstr.str();
+        DebugInUnity(s1);
     };
     
-
+    
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
     {
@@ -296,9 +336,9 @@ namespace Spatializer
         
         if (treeInit) {
             if(newTree){
-            DebugInUnity(std::string("recalculating impulse response"));
+                DebugInUnity(std::string("recalculating impulse response"));
                 calcImpResponse(state->spatializerdata->listenermatrix,state->spatializerdata->sourcematrix);
-            newTree = false;
+                newTree = false;
             }
         }
         
@@ -381,6 +421,6 @@ namespace Spatializer
         }
         
         return UNITY_AUDIODSP_OK;
-   }
-
+    }
+    
 }

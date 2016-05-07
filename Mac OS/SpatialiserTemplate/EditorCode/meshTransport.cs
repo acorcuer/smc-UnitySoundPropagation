@@ -19,6 +19,7 @@ public class meshTransport : MonoBehaviour {
 	private triangle[] debugTri;
 	private Node[] debugNode;
 	private Vector3[] rayOrigins, rayDirections;
+	private float[] rayLengths;
 
 	[DllImport("AudioPluginSpatializerTemplate", CallingConvention = CallingConvention.StdCall)]
 	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes,int tidl,int[] triangleIds);
@@ -179,6 +180,7 @@ public class meshTransport : MonoBehaviour {
 				}
 			}
 		}
+		print ("sending tree");
 		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length,leafSizeList,triangleIdList.Length,triangleIdList); 
 	}
 

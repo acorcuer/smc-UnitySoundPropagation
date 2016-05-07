@@ -38,11 +38,14 @@ const float kEpsilon = 1e-8;
 class Vector3 {
 public:
     float X, Y, Z;
+    
     inline Vector3(){};
     inline Vector3(float n_x, float n_y, float n_z)
     { X = n_x; Y = n_y; Z = n_z;}
+    
     inline void setPos(float n_x, float n_y, float n_z)
     {X = n_x; Y = n_y; Z = n_z;}
+    
     inline Vector3 operator + (const Vector3& A) const
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
     
@@ -51,10 +54,13 @@ public:
     
     inline Vector3 operator - (const Vector3& A) const
     {return Vector3(X - A.X, Y - A.Y, Z - A.Z); }
+    
     inline float Dot( const Vector3& A ) const
     { return A.X*X + A.Y*Y + A.Z*Z; }
+    
     inline Vector3 cross(const Vector3 &A) const
     {return Vector3(Y * A.Z - Z * A.Y,Z * A.X - X * A.Z,X * A.Y - Y * A.X);}
+    
     inline bool operator<(const Vector3 &A) const {
         return (X < A[0] && Y < A[1] && Z < A[2]);
     }
@@ -94,6 +100,7 @@ class Ray {
 public:
     Vector3 origin,direction,invDirection;
     float pathLength = 0;
+    int numReflecs = 0;
     int sign[3];
     inline Ray(){};
     inline Ray(Vector3 n_o, Vector3 n_d)
@@ -108,12 +115,12 @@ public:
     {origin = n_o;}
     inline void setDirection(Vector3 n_d)
     {direction = n_d;
-        invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
+    invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
     }
-    inline void addLength(float add)
-    {pathLength += add;}
+    inline void updateDirec(Vector3 normal) {
+        direction = direction - (normal * (2.0f * direction.Dot(normal)));
+    }
     inline bool testIntersect(Tri *tri,float &t,float &u, float&v){
-       
         Vector3 v0v1 = tri->P2 - tri->P1;
         Vector3 v0v2 = tri->P3 - tri->P1;
         Vector3 pvec = direction.cross(v0v2);

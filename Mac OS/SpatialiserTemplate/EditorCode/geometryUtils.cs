@@ -46,7 +46,7 @@ public class GeomeTree {
 		// Leaf count and nodeList are references as the recursive algorithm makes it
 		// difficult to store these accurately and safely (use of static is possible, but opens 
 		// up more issues than it is worth)
-		masterNode = new Node (inputTriangles, dim, bucketSize,0,ref nodeList,ref leafCount);
+		masterNode = new Node (inputTriangles, dim, bucketSize,0,ref nodeList,ref leafCount,0);
 	}
 
 	public int getLeafCount() {
@@ -63,12 +63,14 @@ public class GeomeTree {
 }
 
 public class Node {
+	private int depth = 0;
 	private Bounds boundingBox;
 	private Node leftChild, rightChild;
 	private triangle[] nodeTriangles = null;
 	private bool isLeaf = false;
 
-	public Node(triangle[] inputTriangles, int dim, int bucketSize, int axis,ref List<Node> nodeList, ref int leafCount){
+	public Node(triangle[] inputTriangles, int dim, int bucketSize, int axis,ref List<Node> nodeList, ref int leafCount,int parentDepth){
+		depth = parentDepth + 1;
 		// Resize the bounding box of this node so that it includes the triangles 
 		// BB's are initialied with no size.
 		resizeBB (inputTriangles);
@@ -85,8 +87,8 @@ public class Node {
 			nodeList.Add (this);
 			triangle[] leftTris, rightTris;
 			splitBB (inputTriangles,axis++, out leftTris, out rightTris);				
-			leftChild = new Node (leftTris, dim, bucketSize,axis % dim, ref nodeList, ref leafCount);
-			rightChild = new Node (rightTris, dim, bucketSize,axis % dim, ref nodeList, ref leafCount);
+			leftChild = new Node (leftTris, dim, bucketSize,axis % dim, ref nodeList, ref leafCount,depth);
+			rightChild = new Node (rightTris, dim, bucketSize,axis % dim, ref nodeList, ref leafCount,depth);
 		}
 	}
 

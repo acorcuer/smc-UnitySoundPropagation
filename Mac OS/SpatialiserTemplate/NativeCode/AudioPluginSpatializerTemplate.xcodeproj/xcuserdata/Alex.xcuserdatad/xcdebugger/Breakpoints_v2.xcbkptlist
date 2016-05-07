@@ -43,7 +43,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "181"
             endingLineNumber = "181"
-            landmarkName = "Node(int parentDepth, int maxDepth, std::deque&lt;float&gt; *boundingBoxArray,std::deque&lt;float&gt; *triangleArray,std::deque&lt;int&gt; *leafSizeArray,std::deque&lt;int&gt; *idList)"
+            landmarkName = "testIntersect(Ray *r, float t0, float t1)"
             landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
@@ -58,23 +58,9 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "226"
-            endingLineNumber = "226">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "Plugin_Spatializer.cpp"
-            timestampString = "484139628.35298"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "240"
-            endingLineNumber = "240"
-            landmarkName = "shootRays(std::vector&lt;Ray&gt;* rayList)"
-            landmarkType = "7">
+            endingLineNumber = "226"
+            landmarkName = "numTri()"
+            landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -89,6 +75,22 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "35"
             endingLineNumber = "35">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Plugin_Spatializer.cpp"
+            timestampString = "484326258.067091"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "274"
+            endingLineNumber = "274"
+            landmarkName = "shootRays(std::vector&lt;Ray&gt; *inputRayList,std::vector&lt;Ray&gt; *outputRayList)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>
