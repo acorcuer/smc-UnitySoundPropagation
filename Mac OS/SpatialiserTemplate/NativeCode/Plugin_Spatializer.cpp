@@ -22,10 +22,8 @@ namespace Spatializer
     GeomeTree* triangleTree;
     bool treeInit = false;
     bool newTree = false;
-    std::vector<float> direcs;
-    std::vector<float> origins;
-    std::vector<float> lengths;
-    raySphere startingRays = *new raySphere(10);
+    raySphere startingRays = *new raySphere(25);
+    std::vector<float> rayOutputData;
     
     enum
     {
@@ -152,8 +150,7 @@ namespace Spatializer
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK CreateCallback(UnityAudioEffectState* state)
     {
-        origins.clear();
-        direcs.clear();
+        rayOutputData.clear();
         EffectData* effectdata = new EffectData;
         memset(effectdata, 0, sizeof(EffectData));
         state->effectdata = effectdata;
@@ -216,27 +213,15 @@ namespace Spatializer
         sharedData.hrtfChannel[channel][index2].GetHRTF(h, azimuth, e - f);
     }
     
-    extern "C" ABA_API void getDirec(long* len, float **data){
-        *len = direcs.size();
+    extern "C" ABA_API void getRayData(long* len, float **data){
+        *len = rayOutputData.size();
         auto size = (*len)*sizeof(float);
         *data = static_cast<float*>(malloc(size));
-        memcpy(*data, direcs.data(), size);
+        memcpy(*data, rayOutputData.data(), size);
     }
-    extern "C" ABA_API void getOrig(long* len, float **data){
-        *len = origins.size();
-        auto size = (*len)*sizeof(float);
-        *data = static_cast<float*>(malloc(size));
-        memcpy(*data, origins.data(), size);
-    }
-    extern "C" ABA_API void getLen(long* len, float **data){
-        *len = lengths.size();
-        auto size = (*len)*sizeof(float);
-        *data = static_cast<float*>(malloc(size));
-        memcpy(*data, lengths.data(), size);
-    }
+    
     extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
         treeInit = false;
-        
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
@@ -249,28 +234,34 @@ namespace Spatializer
     
     void shootRays(std::vector<Ray> *inputRayList,std::vector<Ray> *outputRayList){
         
+        
+        std::stringstream sstr;
+        sstr << "shooting ";
+        sstr << inputRayList->size();
+        std::string s1 = sstr.str();
+        DebugInUnity(s1);
+        
+        
         // For each ray in the raylist, itterate backwards to avoid indexing problems when removing
         // from the list
         for (int i = inputRayList->size()-1; i >= 0; i--) {
-            
-            std::stringstream sstr;
-            sstr << inputRayList->at(i).direction.length();
-            std::string s1 = sstr.str();
-            DebugInUnity(s1);
-            
             // Get list of triangles the ray might intersect with according to bounding heirarchy
             std::deque<Tri> candidates = triangleTree->getCandidates(&inputRayList->at(i));
             // If candidate list has been populated test the ray against each, otherwise delete!
-            if(candidates.size() != 0) {
+            if(candidates.size() > 0) {
                 float min = INFINITY;
                 int minDistIdx = 0;
                 for(int j = 0; j < candidates.size();j++){
                     float t,u,v;
-                    bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], t, u, v);
-          
+                    bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], &t, &u, &v);
+                    
                     if(intersectResult){
-                        if(t < min) {
-                            min = t;
+                        if(t < min && t > 0.1) {
+                            std::stringstream sstr;
+                            sstr << t;
+                            std::string s1 = sstr.str();
+                            DebugInUnity(s1);
+                            min = fabsf(t);
                             minDistIdx = j;
                         }
                     }
@@ -278,39 +269,70 @@ namespace Spatializer
                 // if minimum distance is not infinity (therefore no valid intersections)
                 // update the ray
                 if(min != INFINITY){
-                    
-                    direcs.push_back(inputRayList->at(i).direction.X);
-                    direcs.push_back(inputRayList->at(i).direction.Y);
-                    direcs.push_back(inputRayList->at(i).direction.Z);
-                    origins.push_back(inputRayList->at(i).origin.X);
-                    origins.push_back(inputRayList->at(i).origin.Y);
-                    origins.push_back(inputRayList->at(i).origin.Z);
-                    
+                    rayOutputData.push_back(inputRayList->at(i).origin.X);
+                    rayOutputData.push_back(inputRayList->at(i).origin.Y);
+                    rayOutputData.push_back(inputRayList->at(i).origin.Z);
+                    rayOutputData.push_back(inputRayList->at(i).direction.X);
+                    rayOutputData.push_back(inputRayList->at(i).direction.Y);
+                    rayOutputData.push_back(inputRayList->at(i).direction.Z);
+                    rayOutputData.push_back(fabsf(min));
+                
                     // Update origin
-                    inputRayList->at(i).origin = inputRayList->at(i).origin + (inputRayList->at(i).direction * min);
+                    inputRayList->at(i).origin = inputRayList->at(i).origin + (inputRayList->at(i).direction * fabsf(min));
                     // Update number of reflections
                     inputRayList->at(i).numReflecs++;
                     // Update path length
-                    inputRayList->at(i).pathLength += min;
+                    inputRayList->at(i).pathLength += fabsf(min);
                     //Update angle
                     inputRayList->at(i).updateDirec(candidates[minDistIdx].faceNorm);
                     
                     if(candidates[minDistIdx].isListener){
+                        rayOutputData.push_back(inputRayList->at(i).origin.X);
+                        rayOutputData.push_back(inputRayList->at(i).origin.Y);
+                        rayOutputData.push_back(inputRayList->at(i).origin.Z);
+                        rayOutputData.push_back(inputRayList->at(i).direction.X);
+                        rayOutputData.push_back(inputRayList->at(i).direction.Y);
+                        rayOutputData.push_back(inputRayList->at(i).direction.Z);
+                        rayOutputData.push_back(10.0f);
+
                         outputRayList->push_back(inputRayList->at(i));
                         inputRayList->erase(inputRayList->begin()+i);
                     }else{
                         if(inputRayList->at(i).numReflecs >= maxNumReflecs ||inputRayList->at(i).pathLength >= maxPathLength){
+                            
+                            
+                            rayOutputData.push_back(inputRayList->at(i).origin.X);
+                            rayOutputData.push_back(inputRayList->at(i).origin.Y);
+                            rayOutputData.push_back(inputRayList->at(i).origin.Z);
+                            rayOutputData.push_back(inputRayList->at(i).direction.X);
+                            rayOutputData.push_back(inputRayList->at(i).direction.Y);
+                            rayOutputData.push_back(inputRayList->at(i).direction.Z);
+                            rayOutputData.push_back(10.0f);
                             inputRayList->erase(inputRayList->begin()+i);
                         }
                     }
                 }else {
+                    rayOutputData.push_back(inputRayList->at(i).origin.X);
+                    rayOutputData.push_back(inputRayList->at(i).origin.Y);
+                    rayOutputData.push_back(inputRayList->at(i).origin.Z);
+                    rayOutputData.push_back(inputRayList->at(i).direction.X);
+                    rayOutputData.push_back(inputRayList->at(i).direction.Y);
+                    rayOutputData.push_back(inputRayList->at(i).direction.Z);
+                    rayOutputData.push_back(10.0f);
                     inputRayList->erase(inputRayList->begin()+i);
                 }
             }else {
+                rayOutputData.push_back(inputRayList->at(i).origin.X);
+                rayOutputData.push_back(inputRayList->at(i).origin.Y);
+                rayOutputData.push_back(inputRayList->at(i).origin.Z);
+                rayOutputData.push_back(inputRayList->at(i).direction.X);
+                rayOutputData.push_back(inputRayList->at(i).direction.Y);
+                rayOutputData.push_back(inputRayList->at(i).direction.Z);
+                rayOutputData.push_back(10.0f);
                 inputRayList->erase(inputRayList->begin()+i);
             }
         }
-        if(inputRayList->size() != 0) {
+        if(inputRayList->size() > 0) {
             shootRays(inputRayList, outputRayList);
         }
     }

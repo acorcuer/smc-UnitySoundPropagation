@@ -25,40 +25,18 @@ public class meshTransport : MonoBehaviour {
 	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes,int tidl,int[] triangleIds);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
-	private static extern void getDirec (out int length, out IntPtr array);
-	[DllImport("AudioPluginSpatializerTemplate")]
-	private static extern void getOrig (out int length, out IntPtr array);
-	[DllImport("AudioPluginSpatializerTemplate")]
-	private static extern void getLen (out int length, out IntPtr array);
+	private static extern void getRayData (out int length, out IntPtr array);
 
-	private float[] marshalOrig() {
+	private float[] marshalRayData() {
 		int arraySize;
 		IntPtr arrayPtr;
-		getOrig (out arraySize,out arrayPtr);
+		getRayData (out arraySize,out arrayPtr);
 		float[] theArray =  new float[arraySize];
 		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
 		Marshal.FreeCoTaskMem (arrayPtr);
 		return theArray;
-	}
-	private float[] marshalDirec() {
-		int arraySize;
-		IntPtr arrayPtr;
-		getDirec (out arraySize,out arrayPtr);
-		float[] theArray =  new float[arraySize];
-		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
-		Marshal.FreeCoTaskMem (arrayPtr);
-		return theArray;
-	}
-	private float[] marshalLen() {
-		int arraySize;
-		IntPtr arrayPtr;
-		getOrig (out arraySize,out arrayPtr);
-		float[] theArray =  new float[arraySize];
-		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
-		Marshal.FreeCoTaskMem (arrayPtr);
-		return theArray;
-	}
 
+	}
 	void Start () {
 		GeomeTree KDTree = calcTree ();
 		sendTree (KDTree);
@@ -72,16 +50,14 @@ public class meshTransport : MonoBehaviour {
 
 		}
 		if (getRays) {
-			float[] tempO = marshalOrig ();
-			float[] tempD = marshalDirec ();
-			rayLengths = marshalLen ();
-			rayOrigins = new Vector3[tempO.Length / 3];
-			rayDirections = new Vector3[tempD.Length / 3];
-
+			float[] temp = marshalRayData ();
+			rayOrigins = new Vector3[temp.Length / 7];
+			rayDirections = new Vector3[temp.Length / 7];
+			rayLengths = new float[temp.Length / 7];
 			for (int i = 0; i < rayOrigins.Length; i++) {
-				rayOrigins[i] = new Vector3(tempO[i*3],tempO[(i*3)+1],tempO[(i*3)+2]);
-				rayDirections[i] = new Vector3(tempD[i*3],tempD[(i*3)+1],tempD[(i*3)+2]);
-
+				rayOrigins[i] = new Vector3(temp[i*7],temp[(i*7)+1],temp[(i*7)+2]);
+				rayDirections[i] = new Vector3(temp[(i*7)+3],temp[(i*7)+4],temp[(i*7)+5]);
+				rayLengths [i] = temp[(i*7)+6];
 			}
 			getRays = false;
 		}
@@ -140,6 +116,7 @@ public class meshTransport : MonoBehaviour {
 			Vector3 P2 = transform.TransformPoint(vertVecs [triIdx[(i*3)+1]]);
 			Vector3 P3 = transform.TransformPoint(vertVecs [triIdx[(i*3)+2]]);
 			Vector3 faceNorm = Vector3.Cross((P2 - P1),(P3 - P1));
+			faceNorm.Normalize ();
 			int listenerTag = inputMesh.colors [triIdx[i*3]].Equals (new Color (1, 1, 1)) ? 1: 0;
 			outputArray[i] = new triangle(P1,P2,P3,faceNorm,listenerTag);
 		}
@@ -217,7 +194,7 @@ public class meshTransport : MonoBehaviour {
 		Gizmos.color = Color.yellow;
 		if (showRays) {
 			for (int i = 0; i < rayDirections.Length; i++) {
-				Gizmos.DrawLine (rayOrigins [i], rayOrigins [i] + (rayDirections [i] * 10.0f));
+				Gizmos.DrawLine (rayOrigins [i], rayOrigins [i] + (rayDirections [i] * rayLengths[i]));
 //				Ray tempRay = new Ray (rayOrigins [i],  rayDirections [i]);
 //				Gizmos.DrawRay (tempRay);
 			}

@@ -120,29 +120,41 @@ public:
     inline void setDirection(Vector3 n_d)
     {direction = n_d;
     invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
+        sign[0] = (invDirection.X < 0);
+        sign[1] = (invDirection.Y < 0);
+        sign[2] = (invDirection.Z < 0);
     }
     inline void updateDirec(Vector3 normal) {
         direction = direction - (normal*(2.0f*direction.Dot(normal)));
         direction.Normalize();
+        invDirection = Vector3(1/direction.X, 1/direction.Y, 1/direction.Z);
+        sign[0] = (invDirection.X < 0);
+        sign[1] = (invDirection.Y < 0);
+        sign[2] = (invDirection.Z < 0);
+
     }
-    inline bool testIntersect(Tri *tri,float &t,float &u, float&v){
+    inline bool testIntersect(Tri *tri,float *t,float *u, float *v){
         Vector3 v0v1 = tri->P2 - tri->P1;
         Vector3 v0v2 = tri->P3 - tri->P1;
         Vector3 pvec = direction.cross(v0v2);
         float det = v0v1.Dot(pvec);
-        
+
         if(fabs(det) < kEpsilon) return false;
         float invDet = 1/det;
         
         Vector3 tvec = origin - tri->P1;
-        u = tvec.Dot(pvec) * invDet;
-        if(u < 0 || u > 1) return false;
+        *u = tvec.Dot(pvec) * invDet;
+        if(*u < 0 || *u > 1) return false;
     
         Vector3 qvec = tvec.cross(v0v1);
-        v = direction.Dot(qvec) * invDet;
-        if(v < 0 || u + v > 1) return false;
-        t = v0v2.Dot(qvec)*invDet;
-        return true;
+        *v = direction.Dot(qvec) * invDet;
+        if(*v < 0 || *u + *v > 1) return false;
+        *t = v0v2.Dot(qvec)*invDet;
+        
+        if(*t > kEpsilon) {
+            return true;}else{
+                return false;
+            }
     }
     
 };
@@ -171,18 +183,23 @@ public:
        
         if ( (tmin > tymax) || (tymin > tmax) )
             return false;
+        
         if (tymin > tmin)
             tmin = tymin;
         if (tymax < tmax)
             tmax = tymax;
+        
         tzmin = (parameters[r->sign[2]].Z - r->origin.Z) * r->invDirection.Z;
         tzmax = (parameters[1-r->sign[2]].Z - r->origin.Z) * r->invDirection.Z;
+        
         if ( (tmin > tzmax) || (tzmin > tmax) )
             return false;
+        
         if (tzmin > tmin)
             tmin = tzmin;
         if (tzmax < tmax)
             tmax = tzmax;
+        
         return ( (tmin < t1) && (tmax > t0) );
     }
 };
@@ -220,7 +237,7 @@ public:
         }
     }
     inline bool intersects(Ray *testRay){
-        return boundingBox.testIntersect(testRay, 0, INFINITY);
+        return boundingBox.testIntersect(testRay, kEpsilon, INFINITY);
     }
     inline bool getIsLeaf() {
         return isLeaf;
