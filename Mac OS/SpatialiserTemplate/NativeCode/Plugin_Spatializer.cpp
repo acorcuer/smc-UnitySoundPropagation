@@ -1,36 +1,29 @@
-// Please note that this will only work on Unity 5.2 or higher.
-
-#define _USE_MATH_DEFINES
-
-
 #include "AudioPluginUtil.h"
 #include "rayTraceUtil.h"
+
 #include <cmath>
 #include <string>
 #include <vector>
 #include <sstream>
 #include <deque>
 
-
 extern float hrtfSrcData[];
 extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
-    const int maxPathLength = 100;
-    const int maxNumReflecs = 75;
-    const int airAbsorbtion[6] = {0.002, 0.005, 0.005, 0.007, 0.012, 0.057};
-    const float C = 343.2;
-    const int impLength = std::ceil(44100 * (maxPathLength/C));
-
-    GeomeTree* triangleTree;
-    bool treeInit = false;
-    bool newTree = false;
-    raySphere startingRays = *new raySphere(25);
+    static int maxPathLength = 100;
+    static int maxNumReflecs = 75;
+    const int HRTFLEN = 512;
+    const float GAINCORRECTION = 2.0f;
+    const static int airAbsorbtion[6] = {0.002, 0.005, 0.005, 0.007, 0.012, 0.057};
+    const static float C = 343.2;
+    const static int impLength = std::ceil(44100 * (maxPathLength/C));
+    static GeomeTree* triangleTree;
+    static bool newTree = false;
+    static bool enableDebug;
+    static raySphere startingRays = *new raySphere(25);
     std::vector<float> rayOutputData;
-    
-    
-    
     
     enum
     {
@@ -39,10 +32,6 @@ namespace Spatializer
         P_CUSTOMFALLOFF,
         P_NUM
     };
-    
-    const int HRTFLEN = 512;
-    
-    const float GAINCORRECTION = 2.0f;
     
     class HRTFData
     {
@@ -126,10 +115,8 @@ namespace Spatializer
         InstanceChannel ch[2];
     };
     
-    
     inline bool IsHostCompatible(UnityAudioEffectState* state)
     {
-        // Somewhat convoluted error checking here because hostapiversion is only supported from SDK version 1.03 (i.e. Unity 5.2) and onwards.
         return
         state->structsize >= sizeof(UnityAudioEffectState) &&
         state->hostapiversion >= UNITY_AUDIO_PLUGIN_API_VERSION;
@@ -165,20 +152,22 @@ namespace Spatializer
         if (IsHostCompatible(state))
             state->spatializerdata->distanceattenuationcallback = DistanceAttenuationCallback;
         InitParametersFromDefinitions(InternalRegisterEffectDefinition, effectdata->p);
-        DebugInUnity(std::string("Spatialiser plugin loaded sucessfully"));
-
+        if(enableDebug){
+            DebugInUnity(std::string("Spatialiser plugin loaded sucessfully"));
+        }
+        
         return UNITY_AUDIODSP_OK;
     }
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ReleaseCallback(UnityAudioEffectState* state)
     {
-        DebugInUnity(std::string("Spatailiser plugin released:"));
+        if(enableDebug){
+            DebugInUnity(std::string("Spatailiser plugin released:"));
+        }
         EffectData* data = state->GetEffectData<EffectData>();
         delete data;
         return UNITY_AUDIODSP_OK;
     }
-    
-    
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK SetFloatParameterCallback(UnityAudioEffectState* state, int index, float value)
     {
@@ -229,17 +218,43 @@ namespace Spatializer
         memcpy(*data, rayOutputData.data(), size);
     }
     
-    extern "C" ABA_API void __stdcall marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
-        treeInit = false;
+    extern "C" ABA_API void debugToggle(bool state){
+        enableDebug = state;
+    }
+    
+    extern "C" ABA_API void setTraceParam(int maxLen,int maxReflec){
+        maxPathLength = maxLen;
+        maxNumReflecs = maxReflec;
+    }
+    
+    extern "C" ABA_API void marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
         std::deque<int> triangleIdList(triangleIds, triangleIds + tidl);
         triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList,&triangleIdList);
-        treeInit = true;
+        if(enableDebug){
+            std::stringstream sstr;
+            sstr << "received and constructed tree with ";
+            sstr << numNodes;
+            sstr << " nodes";
+            sendStringStream(&sstr);
+        }
         newTree = true;
-        
-        
+    }
+    
+    void addToDebugList(Ray* inRay,float* length) {
+        rayOutputData.push_back(inRay->origin.X);
+        rayOutputData.push_back(inRay->origin.Y);
+        rayOutputData.push_back(inRay->origin.Z);
+        rayOutputData.push_back(inRay->direction.X);
+        rayOutputData.push_back(inRay->direction.Y);
+        rayOutputData.push_back(inRay->direction.Z);
+        if(length != NULL) {
+            rayOutputData.push_back(fabsf(*length));
+        }else{
+            rayOutputData.push_back(5.0f);
+        }
         
     }
     
@@ -256,10 +271,8 @@ namespace Spatializer
                 for(int j = 0; j < candidates.size();j++){
                     float t;
                     bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], &t);
-                    
                     if(intersectResult){
                         if(t < min && t > 0.1f) {
- 
                             min = t;
                             minDistIdx = j;
                         }
@@ -268,14 +281,7 @@ namespace Spatializer
                 // if minimum distance is not infinity (therefore no valid intersections)
                 // update the ray
                 if(min != INFINITY){
-                    rayOutputData.push_back(inputRayList->at(i).origin.X);
-                    rayOutputData.push_back(inputRayList->at(i).origin.Y);
-                    rayOutputData.push_back(inputRayList->at(i).origin.Z);
-                    rayOutputData.push_back(inputRayList->at(i).direction.X);
-                    rayOutputData.push_back(inputRayList->at(i).direction.Y);
-                    rayOutputData.push_back(inputRayList->at(i).direction.Z);
-                    rayOutputData.push_back(fabsf(min));
-                
+                    addToDebugList(&inputRayList->at(i), &min);
                     // Update origin
                     inputRayList->at(i).origin = inputRayList->at(i).origin + (inputRayList->at(i).direction * fabsf(min));
                     // Update number of reflections
@@ -284,50 +290,22 @@ namespace Spatializer
                     inputRayList->at(i).pathLength += fabsf(min);
                     //Update angle
                     inputRayList->at(i).updateDirec(candidates[minDistIdx].faceNorm);
-                    
                     if(candidates[minDistIdx].isListener){
-                        rayOutputData.push_back(inputRayList->at(i).origin.X);
-                        rayOutputData.push_back(inputRayList->at(i).origin.Y);
-                        rayOutputData.push_back(inputRayList->at(i).origin.Z);
-                        rayOutputData.push_back(inputRayList->at(i).direction.X);
-                        rayOutputData.push_back(inputRayList->at(i).direction.Y);
-                        rayOutputData.push_back(inputRayList->at(i).direction.Z);
-                        rayOutputData.push_back(10.0f);
-
+                        addToDebugList(&inputRayList->at(i), &min);
                         outputRayList->push_back(inputRayList->at(i));
                         inputRayList->erase(inputRayList->begin()+i);
                     }else{
                         if(inputRayList->at(i).numReflecs >= maxNumReflecs ||inputRayList->at(i).pathLength >= maxPathLength){
-                            
-                            
-                            rayOutputData.push_back(inputRayList->at(i).origin.X);
-                            rayOutputData.push_back(inputRayList->at(i).origin.Y);
-                            rayOutputData.push_back(inputRayList->at(i).origin.Z);
-                            rayOutputData.push_back(inputRayList->at(i).direction.X);
-                            rayOutputData.push_back(inputRayList->at(i).direction.Y);
-                            rayOutputData.push_back(inputRayList->at(i).direction.Z);
-                            rayOutputData.push_back(10.0f);
+                            addToDebugList(&inputRayList->at(i), NULL);
                             inputRayList->erase(inputRayList->begin()+i);
                         }
                     }
                 }else {
-                    rayOutputData.push_back(inputRayList->at(i).origin.X);
-                    rayOutputData.push_back(inputRayList->at(i).origin.Y);
-                    rayOutputData.push_back(inputRayList->at(i).origin.Z);
-                    rayOutputData.push_back(inputRayList->at(i).direction.X);
-                    rayOutputData.push_back(inputRayList->at(i).direction.Y);
-                    rayOutputData.push_back(inputRayList->at(i).direction.Z);
-                    rayOutputData.push_back(10.0f);
+                    addToDebugList(&inputRayList->at(i), NULL);
                     inputRayList->erase(inputRayList->begin()+i);
                 }
             }else {
-                rayOutputData.push_back(inputRayList->at(i).origin.X);
-                rayOutputData.push_back(inputRayList->at(i).origin.Y);
-                rayOutputData.push_back(inputRayList->at(i).origin.Z);
-                rayOutputData.push_back(inputRayList->at(i).direction.X);
-                rayOutputData.push_back(inputRayList->at(i).direction.Y);
-                rayOutputData.push_back(inputRayList->at(i).direction.Z);
-                rayOutputData.push_back(10.0f);
+                addToDebugList(&inputRayList->at(i), NULL);
                 inputRayList->erase(inputRayList->begin()+i);
             }
         }
@@ -336,26 +314,27 @@ namespace Spatializer
         }
     }
     
-    
     std::vector<float> calcImpResponse(float* listenerMatrix,float* sourceMatrix, float octavePower[],EffectData* data) {
-        
         std::vector<float> impulseResponse(impLength);
-        
-        if(newTree){
-        Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
-        std::vector<Ray> rays = startingRays.getRayList(sourcePos);
-        shootRays(&rays,&data->sucessfullRays);
-            
+        if(newTree == true){
+            Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
+            std::vector<Ray> rays = startingRays.getRayList(sourcePos);
+            shootRays(&rays,&data->sucessfullRays);
+            newTree = false;
+            if(enableDebug){
+                std::stringstream sstr;
+                sstr << data->sucessfullRays.size();
+                sstr << " Sucessfull Rays";
+                sendStringStream(&sstr);
+            }
         }
-        
         for(int i = 0; i < 6; i++){
-        for(int j = 0; j < data->sucessfullRays.size(); j++) {
-            impulseResponse[(int)std::ceil(data->sucessfullRays[j].pathLength/C)] += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*powf(1-0.5,data->sucessfullRays[j].numReflecs);
-            
-        }
+            for(int j = 0; j < data->sucessfullRays.size(); j++) {
+                impulseResponse[(int)std::ceil(data->sucessfullRays[j].pathLength/C)] += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*powf(1-0.5,data->sucessfullRays[j].numReflecs);
+                
+            }
         }
         return impulseResponse;
-        
     };
     
     
@@ -370,19 +349,13 @@ namespace Spatializer
         }
         
         EffectData* data = state->GetEffectData<EffectData>();
-        
         static const float kRad2Deg = 180.0f / kPI;
-        
         float* m = state->spatializerdata->listenermatrix;
         float* s = state->spatializerdata->sourcematrix;
         
-        //&data->p[P_NUMRAYS]
-        
-        // Currently we ignore source orientation and only use the position
         float px = s[12];
         float py = s[13];
         float pz = s[14];
-        
         float dir_x = m[0] * px + m[4] * py + m[8] * pz + m[12];
         float dir_y = m[1] * px + m[5] * py + m[9] * pz + m[13];
         float dir_z = m[2] * px + m[6] * py + m[10] * pz + m[14];
@@ -398,22 +371,14 @@ namespace Spatializer
         
         GetHRTF(0, data->ch[0].h, azimuth, elevation);
         GetHRTF(1, data->ch[1].h, azimuth, elevation);
-        // From the FMOD documentation:
-        //   A spread angle of 0 makes the stereo sound mono at the point of the 3D emitter.
-        //   A spread angle of 90 makes the left part of the stereo sound place itself at 45 degrees to the left and the right part 45 degrees to the right.
-        //   A spread angle of 180 makes the left part of the stero sound place itself at 90 degrees to the left and the right part 90 degrees to the right.
-        //   A spread angle of 360 makes the stereo sound mono at the opposite speaker location to where the 3D emitter should be located (by moving the left part 180 degrees left and the right part 180 degrees right). So in this case, behind you when the sound should be in front of you!
-        // Note that FMOD performs the spreading and panning in one go. We can't do this here due to the way that impulse-based spatialization works, so we perform the spread calculations on the left/right source signals before they enter the convolution processing.
-        // That way we can still use it to control how the source signal downmixing takes place.
         float spread = cosf(state->spatializerdata->spread * kPI / 360.0f);
         float spreadmatrix[2] = { 2.0f - spread, spread };
-     
+        
         float* reverb = reverbmixbuffer;
         for (int sampleOffset = 0; sampleOffset < length; sampleOffset += HRTFLEN)
         {
             for (int c = 0; c < 2; c++)
             {
-                // stereopan is in the [-1; 1] range, this acts the way fmod does it for stereo
                 float stereopan = 1.0f - ((c == 0) ? FastMax(0.0f, state->spatializerdata->stereopan) : FastMax(0.0f, -state->spatializerdata->stereopan));
                 
                 InstanceChannel& ch = data->ch[c];
@@ -431,7 +396,7 @@ namespace Spatializer
                 int startFreq = 250;
                 int startIdx = (int)startFreq/((state->samplerate/2)/(HRTFLEN*2));
                 float octavePower[numBands];
-            
+                
                 for (int n = 0; n < HRTFLEN * 2; n++)
                 {
                     windowedInput[n].re = (0.54f - 0.46f * cosf(n * (kPI / (float)HRTFLEN*2))) * ch.buffer[n];
@@ -439,28 +404,20 @@ namespace Spatializer
                     ch.x[n].re = ch.buffer[n];
                     ch.x[n].im = 0.0f;
                 }
-
+                
                 FFT::Forward(windowedInput, HRTFLEN * 2, false);
-                    for(int i = 0; i < numBands; i++) {
-                        int binStartIdx = startIdx * (i+1);
-                        int binWidth = (binStartIdx*2)-binStartIdx;
-                        float magSum = 0;
-                        for(int j = (binStartIdx-(binWidth/2)); j < (binStartIdx * 2)+(binWidth/2); j++) {
-                          magSum += windowedInput[j].Magnitude2()*0.5f*(1.0f-cos(2*kPI*((j/(binWidth*2)))));
-                        }
-                        octavePower[i] = sqrtf(magSum*2);
+                
+                for(int i = 0; i < numBands; i++) {
+                    int binStartIdx = startIdx * (i+1);
+                    int binWidth = (binStartIdx*2)-binStartIdx;
+                    float magSum = 0;
+                    for(int j = (binStartIdx-(binWidth/2)); j < (binStartIdx * 2)+(binWidth/2); j++) {
+                        magSum += windowedInput[j].Magnitude2()*0.5f*(1.0f-cos(2*kPI*((j/(binWidth*2)))));
                     }
-         
+                    octavePower[i] = sqrtf(magSum*2.0f);
+                }
                 
-                
-                
-                std::vector<float> imp = calcImpResponse(state->spatializerdata->listenermatrix,state->spatializerdata->sourcematrix,octavePower,data);
-                
-                std::stringstream sstr;
-                sstr << impLength;
-                std::string s1 = sstr.str();
-                DebugInUnity(s1);
-                
+                std::vector<float> imp = calcImpResponse(m,s,octavePower,data);
                 
                 FFT::Forward(ch.x, HRTFLEN * 2, false);
                 

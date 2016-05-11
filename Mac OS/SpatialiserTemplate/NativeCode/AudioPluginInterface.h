@@ -238,9 +238,6 @@ struct UnityAudioEffectState
 
 };
 
-
-
-
 struct UnityAudioParameterDefinition
 {
     char                                       name[16];           // Display name on the GUI

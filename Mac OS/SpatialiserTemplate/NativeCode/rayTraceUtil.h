@@ -1,17 +1,15 @@
-#ifndef rayTraceUtil_h
-#define rayTraceUtil_h
 #include <vector>
 #include <deque>
 #include <string>
 #include <sstream>
-#include <utility>
-
 
 #if UNITY_WIN
 #define ABA_API __declspec(dllexport)
 #else
 #define ABA_API
 #endif
+
+const float kEpsilon = 1e-8;
 
 typedef void(*DebugCallback) (const char *str);
 DebugCallback gDebugCallback;
@@ -32,8 +30,10 @@ void DebugInUnity(std::string message)
     }
 }
 
-const float kEpsilon = 1e-8;
-
+void sendStringStream(std::stringstream* inputStream){
+    std::string theString = inputStream->str();
+    DebugInUnity(theString);
+}
 
 class Vector3 {
 public:
@@ -85,7 +85,6 @@ public:
     }
 };
 
-
 class Tri {
 public:
     Vector3 P1,P2,P3,faceNorm;
@@ -98,7 +97,6 @@ public:
     inline void setFaceNorm(Vector3 n_fn)
     {faceNorm = n_fn;}
 };
-
 
 class Ray {
 public:
@@ -278,7 +276,7 @@ class GeomeTree {
 }
 };
 
-    class raySphere {
+class raySphere {
     public:
         std::vector<Ray> rays;
         inline raySphere(){};
@@ -305,7 +303,3 @@ class GeomeTree {
             return translatedRays;
         }
 };
-
-
-
-#endif /* rayTraceUtil_h */

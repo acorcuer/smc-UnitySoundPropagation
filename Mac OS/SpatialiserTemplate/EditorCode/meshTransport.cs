@@ -9,7 +9,10 @@ using System.Runtime.InteropServices;
 public class meshTransport : MonoBehaviour {
 
 	public string includeTag = "geo";
+	public int maxPathLength = 100;
+	public int maxNumReflecs = 75;
 	public int numTriPerLeaf = 10;
+	public bool debugEnable = false;
 	public bool rescanFlag = false;
 	public bool showWireFrame = false;
 	public bool showSurfaceNormals = false;
@@ -21,8 +24,14 @@ public class meshTransport : MonoBehaviour {
 	private Vector3[] rayOrigins, rayDirections;
 	private float[] rayLengths;
 
-	[DllImport("AudioPluginSpatializerTemplate", CallingConvention = CallingConvention.StdCall)]
+	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes,int tidl,int[] triangleIds);
+
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void debugToggle (bool state);
+
+	[DllImport("AudioPluginSpatializerTemplate")]
+	private static extern void setTraceParam (int maxLen,int maxReflec);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void getRayData (out int length, out IntPtr array);
@@ -35,9 +44,11 @@ public class meshTransport : MonoBehaviour {
 		Marshal.Copy(arrayPtr, theArray, 0, arraySize);
 		Marshal.FreeCoTaskMem (arrayPtr);
 		return theArray;
-
 	}
+
 	void Start () {
+		debugToggle (debugEnable);
+		setTraceParam (maxPathLength, maxNumReflecs);
 		GeomeTree KDTree = calcTree ();
 		sendTree (KDTree);
 	}
@@ -47,7 +58,6 @@ public class meshTransport : MonoBehaviour {
 			GeomeTree KDTree = calcTree ();
 			sendTree (KDTree);
 			rescanFlag = false;
-
 		}
 		if (getRays) {
 			float[] temp = marshalRayData ();
@@ -195,8 +205,6 @@ public class meshTransport : MonoBehaviour {
 		if (showRays) {
 			for (int i = 0; i < rayDirections.Length; i++) {
 				Gizmos.DrawLine (rayOrigins [i], rayOrigins [i] + (rayDirections [i] * rayLengths[i]));
-//				Ray tempRay = new Ray (rayOrigins [i],  rayDirections [i]);
-//				Gizmos.DrawRay (tempRay);
 			}
 		}
 	}
