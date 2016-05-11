@@ -59,7 +59,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "226"
             endingLineNumber = "226"
-            landmarkName = "intersects(Ray *testRay)"
+            landmarkName = "Node(int parentDepth, int maxDepth, std::deque&lt;float&gt; *boundingBoxArray,std::deque&lt;float&gt; *triangleArray,std::deque&lt;int&gt; *leafSizeArray,std::deque&lt;int&gt; *idList)"
             landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
@@ -75,6 +75,22 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "35"
             endingLineNumber = "35">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Plugin_Spatializer.cpp"
+            timestampString = "484565967.970247"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "428"
+            endingLineNumber = "428"
+            landmarkName = "ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

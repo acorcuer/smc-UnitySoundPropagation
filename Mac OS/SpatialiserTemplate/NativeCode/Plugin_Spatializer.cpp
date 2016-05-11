@@ -18,12 +18,19 @@ extern float reverbmixbuffer[];
 namespace Spatializer
 {
     const int maxPathLength = 100;
-    const int maxNumReflecs = 100;
+    const int maxNumReflecs = 75;
+    const int airAbsorbtion[6] = {0.002, 0.005, 0.005, 0.007, 0.012, 0.057};
+    const float C = 343.2;
+    const int impLength = std::ceil(44100 * (maxPathLength/C));
+
     GeomeTree* triangleTree;
     bool treeInit = false;
     bool newTree = false;
     raySphere startingRays = *new raySphere(25);
     std::vector<float> rayOutputData;
+    
+    
+    
     
     enum
     {
@@ -115,6 +122,7 @@ namespace Spatializer
     struct EffectData
     {
         float p[P_NUM];
+        std::vector<Ray> sucessfullRays;
         InstanceChannel ch[2];
     };
     
@@ -158,6 +166,7 @@ namespace Spatializer
             state->spatializerdata->distanceattenuationcallback = DistanceAttenuationCallback;
         InitParametersFromDefinitions(InternalRegisterEffectDefinition, effectdata->p);
         DebugInUnity(std::string("Spatialiser plugin loaded sucessfully"));
+
         return UNITY_AUDIODSP_OK;
     }
     
@@ -230,18 +239,11 @@ namespace Spatializer
         treeInit = true;
         newTree = true;
         
+        
+        
     }
     
     void shootRays(std::vector<Ray> *inputRayList,std::vector<Ray> *outputRayList){
-        
-        
-        std::stringstream sstr;
-        sstr << "shooting ";
-        sstr << inputRayList->size();
-        std::string s1 = sstr.str();
-        DebugInUnity(s1);
-        
-        
         // For each ray in the raylist, itterate backwards to avoid indexing problems when removing
         // from the list
         for (int i = inputRayList->size()-1; i >= 0; i--) {
@@ -252,16 +254,13 @@ namespace Spatializer
                 float min = INFINITY;
                 int minDistIdx = 0;
                 for(int j = 0; j < candidates.size();j++){
-                    float t,u,v;
-                    bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], &t, &u, &v);
+                    float t;
+                    bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], &t);
                     
                     if(intersectResult){
-                        if(t < min && t > 0.1) {
-                            std::stringstream sstr;
-                            sstr << t;
-                            std::string s1 = sstr.str();
-                            DebugInUnity(s1);
-                            min = fabsf(t);
+                        if(t < min && t > 0.1f) {
+ 
+                            min = t;
                             minDistIdx = j;
                         }
                     }
@@ -338,19 +337,26 @@ namespace Spatializer
     }
     
     
-    void calcImpResponse(float* listenerMatrix,float* sourceMatrix) {
+    std::vector<float> calcImpResponse(float* listenerMatrix,float* sourceMatrix, float octavePower[],EffectData* data) {
         
+        std::vector<float> impulseResponse(impLength);
+        
+        if(newTree){
         Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
         std::vector<Ray> rays = startingRays.getRayList(sourcePos);
-        std::vector<Ray> sucessfullRays;
-        shootRays(&rays,&sucessfullRays);
-        std::stringstream sstr;
-        sstr << sucessfullRays.size();
-        sstr << " sucessfull rays";
-        std::string s1 = sstr.str();
-        DebugInUnity(s1);
+        shootRays(&rays,&data->sucessfullRays);
+            
+        }
+        
+        for(int i = 0; i < 6; i++){
+        for(int j = 0; j < data->sucessfullRays.size(); j++) {
+            impulseResponse[(int)std::ceil(data->sucessfullRays[j].pathLength/C)] += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*powf(1-0.5,data->sucessfullRays[j].numReflecs);
+            
+        }
+        }
+        return impulseResponse;
+        
     };
-    
     
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
@@ -369,14 +375,6 @@ namespace Spatializer
         
         float* m = state->spatializerdata->listenermatrix;
         float* s = state->spatializerdata->sourcematrix;
-        
-        if (treeInit) {
-            if(newTree){
-                DebugInUnity(std::string("recalculating impulse response"));
-                calcImpResponse(state->spatializerdata->listenermatrix,state->spatializerdata->sourcematrix);
-                newTree = false;
-            }
-        }
         
         //&data->p[P_NUMRAYS]
         
@@ -409,7 +407,7 @@ namespace Spatializer
         // That way we can still use it to control how the source signal downmixing takes place.
         float spread = cosf(state->spatializerdata->spread * kPI / 360.0f);
         float spreadmatrix[2] = { 2.0f - spread, spread };
-        
+     
         float* reverb = reverbmixbuffer;
         for (int sampleOffset = 0; sampleOffset < length; sampleOffset += HRTFLEN)
         {
@@ -420,7 +418,6 @@ namespace Spatializer
                 
                 InstanceChannel& ch = data->ch[c];
                 
-                
                 for (int n = 0; n < HRTFLEN; n++)
                 {
                     float left  = inbuffer[n * 2];
@@ -429,11 +426,41 @@ namespace Spatializer
                     ch.buffer[n + HRTFLEN] = left * spreadmatrix[c] + right * spreadmatrix[1 - c];
                 }
                 
+                UnityComplexNumber windowedInput[HRTFLEN*2];
+                int numBands = 6;
+                int startFreq = 250;
+                int startIdx = (int)startFreq/((state->samplerate/2)/(HRTFLEN*2));
+                float octavePower[numBands];
+            
                 for (int n = 0; n < HRTFLEN * 2; n++)
                 {
+                    windowedInput[n].re = (0.54f - 0.46f * cosf(n * (kPI / (float)HRTFLEN*2))) * ch.buffer[n];
+                    windowedInput[n].im = 0.0f;
                     ch.x[n].re = ch.buffer[n];
                     ch.x[n].im = 0.0f;
                 }
+
+                FFT::Forward(windowedInput, HRTFLEN * 2, false);
+                    for(int i = 0; i < numBands; i++) {
+                        int binStartIdx = startIdx * (i+1);
+                        int binWidth = (binStartIdx*2)-binStartIdx;
+                        float magSum = 0;
+                        for(int j = (binStartIdx-(binWidth/2)); j < (binStartIdx * 2)+(binWidth/2); j++) {
+                          magSum += windowedInput[j].Magnitude2()*0.5f*(1.0f-cos(2*kPI*((j/(binWidth*2)))));
+                        }
+                        octavePower[i] = sqrtf(magSum*2);
+                    }
+         
+                
+                
+                
+                std::vector<float> imp = calcImpResponse(state->spatializerdata->listenermatrix,state->spatializerdata->sourcematrix,octavePower,data);
+                
+                std::stringstream sstr;
+                sstr << impLength;
+                std::string s1 = sstr.str();
+                DebugInUnity(s1);
+                
                 
                 FFT::Forward(ch.x, HRTFLEN * 2, false);
                 
@@ -458,5 +485,4 @@ namespace Spatializer
         
         return UNITY_AUDIODSP_OK;
     }
-    
 }

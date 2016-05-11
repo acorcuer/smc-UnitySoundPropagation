@@ -118,8 +118,8 @@ public:
     inline void setOrigin(Vector3 n_o)
     {origin = n_o;}
     inline void setDirection(Vector3 n_d)
-    {direction = n_d;
-    invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
+    {   direction = n_d;
+        invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
         sign[0] = (invDirection.X < 0);
         sign[1] = (invDirection.Y < 0);
         sign[2] = (invDirection.Z < 0);
@@ -133,7 +133,8 @@ public:
         sign[2] = (invDirection.Z < 0);
 
     }
-    inline bool testIntersect(Tri *tri,float *t,float *u, float *v){
+    inline bool testIntersect(Tri *tri,float *t){
+        float u,v;
         Vector3 v0v1 = tri->P2 - tri->P1;
         Vector3 v0v2 = tri->P3 - tri->P1;
         Vector3 pvec = direction.cross(v0v2);
@@ -143,18 +144,14 @@ public:
         float invDet = 1/det;
         
         Vector3 tvec = origin - tri->P1;
-        *u = tvec.Dot(pvec) * invDet;
-        if(*u < 0 || *u > 1) return false;
+        u = tvec.Dot(pvec) * invDet;
+        if(u < 0 || u > 1) return false;
     
         Vector3 qvec = tvec.cross(v0v1);
-        *v = direction.Dot(qvec) * invDet;
-        if(*v < 0 || *u + *v > 1) return false;
+        v = direction.Dot(qvec) * invDet;
+        if(v < 0 || u + v > 1) return false;
         *t = v0v2.Dot(qvec)*invDet;
-        
-        if(*t > kEpsilon) {
-            return true;}else{
-                return false;
-            }
+        return true;
     }
     
 };
@@ -237,7 +234,7 @@ public:
         }
     }
     inline bool intersects(Ray *testRay){
-        return boundingBox.testIntersect(testRay, kEpsilon, INFINITY);
+        return boundingBox.testIntersect(testRay, 0.0f, INFINITY);
     }
     inline bool getIsLeaf() {
         return isLeaf;
