@@ -19,7 +19,6 @@ public class triangle {
 		P3 = n_p3;
 		facenorm = n_fn;
 		isListener = n_ls;
-
 	}
 	public void setData(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3,Vector3 n_fn,int n_ls) {
 		P1 = n_p1;

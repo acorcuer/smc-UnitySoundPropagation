@@ -2,6 +2,7 @@
 #include <deque>
 #include <string>
 #include <sstream>
+#include <cmath>
 
 #if UNITY_WIN
 #define ABA_API __declspec(dllexport)
@@ -49,6 +50,12 @@ public:
     inline float length() {return sqrtf((X*X) + (Y*Y) + (Z*Z));}
     
     inline void  Normalize() { float l = 1.0f / length(); X *= l; Y *= l; Z *= l; }
+    
+    inline bool operator == (const Vector3& A) const
+    {return (A.X == X || A.Y == Y || A.Z == Z); }
+    
+    inline bool operator != (const Vector3& A) const
+    {return (A.X != X || A.Y != Y || A.Z != Z); }
     
     inline Vector3 operator + (const Vector3& A) const
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
@@ -276,7 +283,7 @@ class GeomeTree {
 }
 };
 
-class raySphere {
+struct raySphere {
     public:
         std::vector<Ray> rays;
         inline raySphere(){};

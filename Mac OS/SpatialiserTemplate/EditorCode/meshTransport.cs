@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 public class meshTransport : MonoBehaviour {
 
 	public string includeTag = "geo";
+	public int numRays = 1000;
 	public int maxPathLength = 100;
 	public int maxNumReflecs = 75;
 	public int numTriPerLeaf = 10;
@@ -31,7 +32,7 @@ public class meshTransport : MonoBehaviour {
 	private static extern void debugToggle (bool state);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
-	private static extern void setTraceParam (int maxLen,int maxReflec);
+	private static extern void setTraceParam (int numberOfRays,int maxLen,int maxReflec);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void getRayData (out int length, out IntPtr array);
@@ -48,7 +49,7 @@ public class meshTransport : MonoBehaviour {
 
 	void Start () {
 		debugToggle (debugEnable);
-		setTraceParam (maxPathLength, maxNumReflecs);
+		setTraceParam (Mathf.FloorToInt (Mathf.Sqrt (numRays)),maxPathLength, maxNumReflecs);
 		GeomeTree KDTree = calcTree ();
 		sendTree (KDTree);
 	}

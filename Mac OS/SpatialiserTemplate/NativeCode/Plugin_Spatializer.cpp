@@ -1,17 +1,13 @@
 #include "AudioPluginUtil.h"
 #include "rayTraceUtil.h"
 
-#include <cmath>
-#include <string>
-#include <vector>
-#include <sstream>
-#include <deque>
-
 extern float hrtfSrcData[];
 extern float reverbmixbuffer[];
 
 namespace Spatializer
 {
+    // Variables that need to be shared between instances of the plugin
+    static int numRays = 20;
     static int maxPathLength = 100;
     static int maxNumReflecs = 75;
     const int HRTFLEN = 512;
@@ -20,10 +16,11 @@ namespace Spatializer
     const static float C = 343.2;
     const static int impLength = std::ceil(44100 * (maxPathLength/C));
     static GeomeTree* triangleTree;
-    static bool newTree = false;
-    static bool enableDebug;
-    static raySphere startingRays = *new raySphere(25);
+    static raySphere sourceSphere = raySphere(numRays);
     std::vector<float> rayOutputData;
+    static bool newTree = true;
+    static bool treeInit = false;
+    static bool enableDebug;
     
     enum
     {
@@ -111,6 +108,7 @@ namespace Spatializer
     struct EffectData
     {
         float p[P_NUM];
+        Vector3 prevPositons[2];
         std::vector<Ray> sucessfullRays;
         InstanceChannel ch[2];
     };
@@ -222,12 +220,16 @@ namespace Spatializer
         enableDebug = state;
     }
     
-    extern "C" ABA_API void setTraceParam(int maxLen,int maxReflec){
+    extern "C" ABA_API void setTraceParam(int numberOfRays,int maxLen,int maxReflec){
+        numRays  = numberOfRays;
+        sourceSphere = raySphere(numRays);
         maxPathLength = maxLen;
         maxNumReflecs = maxReflec;
+        
     }
     
     extern "C" ABA_API void marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
+        rayOutputData.clear();
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
@@ -241,6 +243,7 @@ namespace Spatializer
             sendStringStream(&sstr);
         }
         newTree = true;
+        treeInit = true;
     }
     
     void addToDebugList(Ray* inRay,float* length) {
@@ -316,11 +319,30 @@ namespace Spatializer
     
     std::vector<float> calcImpResponse(float* listenerMatrix,float* sourceMatrix, float octavePower[],EffectData* data) {
         std::vector<float> impulseResponse(impLength);
-        if(newTree == true){
-            Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
-            std::vector<Ray> rays = startingRays.getRayList(sourcePos);
-            shootRays(&rays,&data->sucessfullRays);
-            newTree = false;
+        Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
+        Vector3 listenerPos = Vector3(listenerMatrix[12], listenerMatrix[13], sourceMatrix[14]);
+        bool reShoot = false;
+        
+        if(sourcePos != data->prevPositons[0]){
+            std::stringstream sstr;
+            sstr << " CHANGE";
+            sendStringStream(&sstr);
+            reShoot = true;
+            data->prevPositons[0] = sourcePos;
+        }
+        if(listenerPos != data->prevPositons[1]){
+            std::stringstream sstr;
+            sstr << " CHANGE";
+            sendStringStream(&sstr);
+            reShoot = true;
+            data->prevPositons[1] = listenerPos;
+        }
+        
+        if(reShoot || newTree ) {
+        data->sucessfullRays.clear();
+        std::vector<Ray> sourceRays = sourceSphere.getRayList(sourcePos);
+        shootRays(&sourceRays,&data->sucessfullRays);
+        newTree = false;
             if(enableDebug){
                 std::stringstream sstr;
                 sstr << data->sucessfullRays.size();
@@ -328,10 +350,10 @@ namespace Spatializer
                 sendStringStream(&sstr);
             }
         }
+        
         for(int i = 0; i < 6; i++){
             for(int j = 0; j < data->sucessfullRays.size(); j++) {
                 impulseResponse[(int)std::ceil(data->sucessfullRays[j].pathLength/C)] += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*powf(1-0.5,data->sucessfullRays[j].numReflecs);
-                
             }
         }
         return impulseResponse;
@@ -417,7 +439,10 @@ namespace Spatializer
                     octavePower[i] = sqrtf(magSum*2.0f);
                 }
                 
+                if(treeInit){
                 std::vector<float> imp = calcImpResponse(m,s,octavePower,data);
+                }
+                
                 
                 FFT::Forward(ch.x, HRTFLEN * 2, false);
                 
