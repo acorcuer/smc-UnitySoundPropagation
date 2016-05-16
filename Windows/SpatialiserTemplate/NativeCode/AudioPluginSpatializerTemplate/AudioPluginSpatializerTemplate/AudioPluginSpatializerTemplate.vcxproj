@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{62AC4307-4CA9-4B7F-BF82-0F03CC81CBA9}</ProjectGuid>
+    <ProjectGuid>{A0CCA9E7-CE99-49F9-9F37-4D58EA93F3F7}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>AudioPluginSpatializerTemplate</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>

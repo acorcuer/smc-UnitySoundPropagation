@@ -242,6 +242,7 @@ public:
     inline void SetupHighShelf(float cutoff, float samplerate, float gain, float Q);
     inline void SetupLowpass(float cutoff, float samplerate, float Q);
     inline void SetupHighpass(float cutoff, float samplerate, float Q);
+	inline void SetupBandpass(float cutoff, float samplerate, float Q);
 
 public:
     inline float Process(float input)
@@ -316,6 +317,18 @@ void BiquadFilter::SetupLowpass(float cutoff, float samplerate, float Q)
     a1 =  -2.0f * cosf(w0);
     a2 =   1.0f - alpha;
     float inv_a0 = 1.0f / a0; a1 *= inv_a0; a2 *= inv_a0; b0 *= inv_a0; b1 *= inv_a0; b2 *= inv_a0;
+}
+
+void BiquadFilter::SetupBandpass(float cutoff, float samplerate, float Q)
+{
+	float w0 = 2.0f * kPI * cutoff / samplerate, alpha = sinf(w0) / (2.0f * Q), a0;
+	b0 = alpha;
+	b1 = 0;
+	b2 = -alpha;
+	a0 = 1.0f + alpha;
+	a1 = -2.0f * cosf(w0);
+	a2 = 1.0f - alpha;
+	float inv_a0 = 1.0f / a0; a1 *= inv_a0; a2 *= inv_a0; b0 *= inv_a0; b1 *= inv_a0; b2 *= inv_a0;
 }
 
 void BiquadFilter::SetupHighpass(float cutoff, float samplerate, float Q)

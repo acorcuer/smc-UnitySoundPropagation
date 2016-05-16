@@ -1,17 +1,16 @@
-#ifndef rayTraceUtil_h
-#define rayTraceUtil_h
 #include <vector>
 #include <deque>
 #include <string>
 #include <sstream>
-#include <utility>
-
+#include <cmath>
 
 #if UNITY_WIN
 #define ABA_API __declspec(dllexport)
 #else
 #define ABA_API
 #endif
+
+const float kEpsilon = 1e-8;
 
 typedef void(*DebugCallback) (const char *str);
 DebugCallback gDebugCallback;
@@ -32,29 +31,48 @@ void DebugInUnity(std::string message)
     }
 }
 
-const float kEpsilon = 1e-8;
-
+void sendStringStream(std::stringstream* inputStream){
+    std::string theString = inputStream->str();
+    DebugInUnity(theString);
+}
 
 class Vector3 {
 public:
     float X, Y, Z;
+    
     inline Vector3(){};
     inline Vector3(float n_x, float n_y, float n_z)
     { X = n_x; Y = n_y; Z = n_z;}
+    
     inline void setPos(float n_x, float n_y, float n_z)
     {X = n_x; Y = n_y; Z = n_z;}
+    
+    inline float length() {return sqrtf((X*X) + (Y*Y) + (Z*Z));}
+    
+    inline void  Normalize() { float l = 1.0f / length(); X *= l; Y *= l; Z *= l; }
+    
+    inline bool operator == (const Vector3& A) const
+    {return (A.X == X || A.Y == Y || A.Z == Z); }
+    
+    inline bool operator != (const Vector3& A) const
+    {return (A.X != X || A.Y != Y || A.Z != Z); }
+    
     inline Vector3 operator + (const Vector3& A) const
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
     
     inline Vector3 operator * (const float& A) const
     {return Vector3(X * A, Y * A, Z * A); }
+    
     inline Vector3 operator - (const Vector3& A) const
     {return Vector3(X - A.X, Y - A.Y, Z - A.Z); }
+    
     inline float Dot( const Vector3& A ) const
     { return A.X*X + A.Y*Y + A.Z*Z; }
-    inline Vector3 cross(const Vector3 &A) const
+    
+    inline Vector3 cross(const Vector3& A) const
     {return Vector3(Y * A.Z - Z * A.Y,Z * A.X - X * A.Z,X * A.Y - Y * A.X);}
-    inline bool operator<(const Vector3 &A) const {
+    
+    inline bool operator<(const Vector3& A) const {
         return (X < A[0] && Y < A[1] && Z < A[2]);
     }
     inline float operator [] (const int& A) const{
@@ -74,7 +92,6 @@ public:
     }
 };
 
-
 class Tri {
 public:
     Vector3 P1,P2,P3,faceNorm;
@@ -88,11 +105,11 @@ public:
     {faceNorm = n_fn;}
 };
 
-
 class Ray {
 public:
     Vector3 origin,direction,invDirection;
     float pathLength = 0;
+    int numReflecs = 0;
     int sign[3];
     inline Ray(){};
     inline Ray(Vector3 n_o, Vector3 n_d)
@@ -106,28 +123,28 @@ public:
     inline void setOrigin(Vector3 n_o)
     {origin = n_o;}
     inline void setDirection(Vector3 n_d)
-    {direction = n_d;
+    {   direction = n_d;
         invDirection = Vector3(1/n_d.X, 1/n_d.Y, 1/n_d.Z);
+        sign[0] = (invDirection.X < 0);
+        sign[1] = (invDirection.Y < 0);
+        sign[2] = (invDirection.Z < 0);
     }
-    inline void addLength(float add)
-    {pathLength += add;}
-	/*inline float getAngle(Vector3 normal)
-	{
-		float angle = acosf(direction.Dot(normal)/sqrtf(direction.lenSq * normal.lenSq));
-		return angle;
-	}*/
-	inline Vector3 getNewDirection(Vector3 normal)
-	{
-		Vector3 newDir = direction - normal * 2.0f * direction.Dot(normal);
-		return newDir;
-	}
-    inline bool testIntersect(Tri *tri,float &t,float &u, float&v){
-       
+    inline void updateDirec(Vector3 normal) {
+        direction = direction - (normal*(2.0f*direction.Dot(normal)));
+        direction.Normalize();
+        invDirection = Vector3(1/direction.X, 1/direction.Y, 1/direction.Z);
+        sign[0] = (invDirection.X < 0);
+        sign[1] = (invDirection.Y < 0);
+        sign[2] = (invDirection.Z < 0);
+
+    }
+    inline bool testIntersect(Tri *tri,float *t){
+        float u,v;
         Vector3 v0v1 = tri->P2 - tri->P1;
         Vector3 v0v2 = tri->P3 - tri->P1;
         Vector3 pvec = direction.cross(v0v2);
         float det = v0v1.Dot(pvec);
-        
+
         if(fabs(det) < kEpsilon) return false;
         float invDet = 1/det;
         
@@ -138,7 +155,7 @@ public:
         Vector3 qvec = tvec.cross(v0v1);
         v = direction.Dot(qvec) * invDet;
         if(v < 0 || u + v > 1) return false;
-        t = v0v2.Dot(qvec)*invDet;
+        *t = v0v2.Dot(qvec)*invDet;
         return true;
     }
     
@@ -168,18 +185,23 @@ public:
        
         if ( (tmin > tymax) || (tymin > tmax) )
             return false;
+        
         if (tymin > tmin)
             tmin = tymin;
         if (tymax < tmax)
             tmax = tymax;
+        
         tzmin = (parameters[r->sign[2]].Z - r->origin.Z) * r->invDirection.Z;
         tzmax = (parameters[1-r->sign[2]].Z - r->origin.Z) * r->invDirection.Z;
+        
         if ( (tmin > tzmax) || (tzmin > tmax) )
             return false;
+        
         if (tzmin > tmin)
             tmin = tzmin;
         if (tzmax < tmax)
             tmax = tzmax;
+        
         return ( (tmin < t1) && (tmax > t0) );
     }
 };
@@ -217,7 +239,7 @@ public:
         }
     }
     inline bool intersects(Ray *testRay){
-        return boundingBox.testIntersect(testRay, 0, INFINITY);
+        return boundingBox.testIntersect(testRay, 0.0f, INFINITY);
     }
     inline bool getIsLeaf() {
         return isLeaf;
@@ -261,7 +283,7 @@ class GeomeTree {
 }
 };
 
-    class raySphere {
+struct raySphere {
     public:
         std::vector<Ray> rays;
         inline raySphere(){};
@@ -270,8 +292,8 @@ class GeomeTree {
             float rnd2 = rand() % 2;
             for(int i = 0; i < nRays; i++) {
                 for (int j = 0; j < nRays; j++) {
-            float l = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*cos(2 * M_PI*((j + rnd2) / nRays));
-            float m = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*sin(2 * M_PI*((j + rnd2) / nRays));
+            float l = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*cos(2 * kPI*((j + rnd2) / nRays));
+            float m = 2 * sqrt(((i + rnd1) / nRays) - pow(((i + rnd1) / nRays), 2.0))*sin(2 * kPI*((j + rnd2) / nRays));
             float n = 1 - 2 * ((i + rnd1) / nRays);
             Vector3 directionVector = Vector3(l, m, n);
             Vector3 positionVector = directionVector;;
@@ -288,7 +310,3 @@ class GeomeTree {
             return translatedRays;
         }
 };
-
-
-
-#endif /* rayTraceUtil_h */

@@ -1,51 +1,59 @@
 ﻿  Plugin_SpatializerReverb.cpp
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializerreverb.cpp(125): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializerreverb.cpp(130): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializerreverb.cpp(140): warning C4244: '*=': conversion from 'float' to 'int', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializerreverb.cpp(144): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializerreverb.cpp(125): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializerreverb.cpp(130): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializerreverb.cpp(140): warning C4244: '*=': conversion from 'float' to 'int', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializerreverb.cpp(144): warning C4018: '<': signed/unsigned mismatch
   Plugin_Spatializer.cpp
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(35): warning C4305: 'initializing': truncation from 'double' to 'float'
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(242): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(260): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(261): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(264): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(265): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\raytraceutil.h(275): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializer.cpp(242): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializer.cpp(247): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\plugin_spatializer.cpp(338): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(13): warning C4305: 'initializing': truncation from 'double' to 'float'
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(273): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(291): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(292): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(295): error C2065: 'M_PI': undeclared identifier
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(296): error C2065: 'M_PI': undeclared identifier
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\raytraceutil.h(306): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(15): warning C4838: conversion from 'double' to 'const int' requires a narrowing conversion
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(15): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(16): warning C4305: 'initializing': truncation from 'double' to 'float'
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(17): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(17): warning C4244: 'initializing': conversion from 'float' to 'const int', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(274): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(355): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(356): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(400): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(420): error C2131: expression did not evaluate to a constant
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(420): note: failure was caused by non-constant arguments or reference to a non-constant symbol
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(420): note: see usage of 'numBands'
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\plugin_spatializer.cpp(439): error C3863: array type 'float [numBands]' is not assignable
   hrtftable.cpp
   AudioPluginUtil.cpp
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(32): warning C4018: '<': signed/unsigned mismatch
-  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(99): note: see reference to function template instantiation 'void FFTProcess<double>(UnityComplexNumber *,int,bool)' being compiled
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(43): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(56): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(64): warning C4018: '<': signed/unsigned mismatch
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.h(81): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(87): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Sub<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(32): warning C4018: '<': signed/unsigned mismatch
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(99): note: see reference to function template instantiation 'void FFTProcess<double>(UnityComplexNumber *,int,bool)' being compiled
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(43): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(56): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(64): warning C4018: '<': signed/unsigned mismatch
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.h(81): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(87): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Sub<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
           with
           [
               T=double
           ]
-  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(87): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Sub<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(87): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Sub<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
           with
           [
               T=double
           ]
-  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(99): note: see reference to function template instantiation 'void FFTProcess<double>(UnityComplexNumber *,int,bool)' being compiled
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.h(82): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.h(74): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
-  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(88): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Add<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(99): note: see reference to function template instantiation 'void FFTProcess<double>(UnityComplexNumber *,int,bool)' being compiled
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.h(82): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.h(74): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(88): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Add<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
           with
           [
               T=double
           ]
-  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.cpp(88): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Add<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
+  c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.cpp(88): note: see reference to function template instantiation 'void UnityComplexNumberT<float>::Add<float,T,float>(const UnityComplexNumberT<float> &,const UnityComplexNumberT<T> &,UnityComplexNumberT<float> &)' being compiled
           with
           [
               T=double
           ]
-c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\0705\nativecode\audiopluginutil.h(75): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\andrea\documents\smc\2o_semester\project\cpp code\codemay\nativecode\audiopluginutil.h(75): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
   Generating Code...
-     Creating library C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\0705\NativeCode\AudioPluginSpatializerTemplate\Debug\AudioPluginSpatializerTemplate.lib and object C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\0705\NativeCode\AudioPluginSpatializerTemplate\Debug\AudioPluginSpatializerTemplate.exp
-  AudioPluginSpatializerTemplate.vcxproj -> C:\Users\Andrea\Documents\SMC\2o_semester\Project\Cpp Code\CodeMay\0705\NativeCode\AudioPluginSpatializerTemplate\Debug\AudioPluginSpatializerTemplate.dll
