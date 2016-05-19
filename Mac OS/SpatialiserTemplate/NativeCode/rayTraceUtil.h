@@ -3,6 +3,8 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <pthread.h>
+
 
 #if UNITY_WIN
 #define ABA_API __declspec(dllexport)
@@ -60,11 +62,14 @@ public:
     inline Vector3 operator + (const Vector3& A) const
     {return Vector3(X + A.X, Y + A.Y, Z + A.Z); }
     
+    inline Vector3 operator - (const Vector3& A) const
+    {return Vector3(X - A.X, Y - A.Y, Z - A.Z); }
+    
     inline Vector3 operator * (const float& A) const
     {return Vector3(X * A, Y * A, Z * A); }
     
-    inline Vector3 operator - (const Vector3& A) const
-    {return Vector3(X - A.X, Y - A.Y, Z - A.Z); }
+    inline Vector3 operator / (const float& A) const
+    {return Vector3(X / A, Y / A, Z / A); }
     
     inline float Dot( const Vector3& A ) const
     { return A.X*X + A.Y*Y + A.Z*Z; }
@@ -95,10 +100,11 @@ public:
 class Tri {
 public:
     Vector3 P1,P2,P3,faceNorm;
-    int isListener;
+    float absorbitonCoeff;
+    int objectType;
     inline Tri(){};
-    inline Tri(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3,Vector3 n_fn,int n_ls)
-    {P1 = n_p1; P2 = n_p2; P3 = n_p3; faceNorm = n_fn;isListener = n_ls;}
+    inline Tri(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3,Vector3 n_fn,int n_ls,float n_abs)
+    {P1 = n_p1; P2 = n_p2; P3 = n_p3; faceNorm = n_fn;objectType = n_ls;absorbitonCoeff = n_abs;}
     inline void setVerts(Vector3 n_p1,Vector3 n_p2,Vector3 n_p3)
     {P1 = n_p1; P2 = n_p2; P3 = n_p3;}
     inline void setFaceNorm(Vector3 n_fn)
@@ -108,8 +114,10 @@ public:
 class Ray {
 public:
     Vector3 origin,direction,invDirection;
+    float absorbtion = 1;
     float pathLength = 0;
     int numReflecs = 0;
+    int listenerTag = 5;
     int sign[3];
     inline Ray(){};
     inline Ray(Vector3 n_o, Vector3 n_d)
@@ -215,7 +223,7 @@ private:
 public:
     Node *leftChild,*rightChild;
     inline Node() {}
-    inline Node(int parentDepth, int maxDepth, std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray,std::deque<int> *idList) {
+    inline Node(int parentDepth, int maxDepth, std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray,std::deque<int> *idList,std::deque<float> *matList) {
         this->depth = parentDepth+1;
         this->boundingBox = Bounds(Vector3(boundingBoxArray->at(0),boundingBoxArray->at(1),boundingBoxArray->at(2)),Vector3(boundingBoxArray->at(3),boundingBoxArray->at(4),boundingBoxArray->at(5)));
         boundingBoxArray->erase(boundingBoxArray->begin(), boundingBoxArray->begin()+6);
@@ -230,12 +238,13 @@ public:
                 Vector3 P3 = Vector3(triangleArray->at(6),triangleArray->at(7),triangleArray->at(8));
                 Vector3 faceNorm = Vector3(triangleArray->at(9),triangleArray->at(10),triangleArray->at(11));
                 triangleArray->erase(triangleArray->begin(), triangleArray->begin()+12);
-                nodeTriangles[i] = *new Tri(P1,P2,P3,faceNorm,idList->front());
+                nodeTriangles[i] = *new Tri(P1,P2,P3,faceNorm,idList->front(),matList->front());
                 idList->pop_front();
+                matList->pop_front();
             }
         }else{
-            leftChild = new Node(depth,maxDepth,boundingBoxArray,triangleArray,leafSizeArray,idList);
-            rightChild = new Node(depth,maxDepth,boundingBoxArray,triangleArray,leafSizeArray,idList);
+            leftChild = new Node(depth,maxDepth,boundingBoxArray,triangleArray,leafSizeArray,idList,matList);
+            rightChild = new Node(depth,maxDepth,boundingBoxArray,triangleArray,leafSizeArray,idList,matList);
         }
     }
     inline bool intersects(Ray *testRay){
@@ -256,8 +265,8 @@ class GeomeTree {
     public:
     Node masterNode;
     inline GeomeTree() {};
-    inline GeomeTree(int maxDepth,std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray,std::deque<int> *idList) {
-        masterNode = *new Node(0,maxDepth,boundingBoxArray,triangleArray,leafSizeArray,idList);
+    inline GeomeTree(int maxDepth,std::deque<float> *boundingBoxArray,std::deque<float> *triangleArray,std::deque<int> *leafSizeArray,std::deque<int> *idList,std::deque<float> *matList) {
+        masterNode = *new Node(0,maxDepth,boundingBoxArray,triangleArray,leafSizeArray,idList,matList);
     };
     
     inline std::deque<Tri> getCandidates(Ray *testRay) {

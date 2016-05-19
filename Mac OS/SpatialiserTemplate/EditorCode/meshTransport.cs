@@ -12,6 +12,7 @@ public class meshTransport : MonoBehaviour {
 	public int numRays = 1000;
 	public int maxPathLength = 100;
 	public int maxNumReflecs = 75;
+	public float absCoeff = 0.5f;
 	public int numTriPerLeaf = 10;
 	public bool debugEnable = false;
 	public bool rescanFlag = false;
@@ -26,13 +27,13 @@ public class meshTransport : MonoBehaviour {
 	private float[] rayLengths;
 
 	[DllImport("AudioPluginSpatializerTemplate")]
-	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes,int tidl,int[] triangleIds);
+	private static extern void marshalGeomeTree (int numNodes,int numTri, int depth,int bbl, float[] boundingBoxes,int tl,float[] triangles, int lsl,int[] leafSizes,int tidl,int[] triangleIds,int tml,float[] triangleMatList);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void debugToggle (bool state);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
-	private static extern void setTraceParam (int numberOfRays,int maxLen,int maxReflec);
+	private static extern void setTraceParam (int numberOfRays,int maxLen,int maxReflec,float absorbtionCoeff);
 
 	[DllImport("AudioPluginSpatializerTemplate")]
 	private static extern void getRayData (out int length, out IntPtr array);
@@ -49,7 +50,7 @@ public class meshTransport : MonoBehaviour {
 
 	void Start () {
 		debugToggle (debugEnable);
-		setTraceParam (Mathf.FloorToInt (Mathf.Sqrt (numRays)),maxPathLength, maxNumReflecs);
+		setTraceParam (Mathf.FloorToInt (Mathf.Sqrt (numRays)),maxPathLength, maxNumReflecs,absCoeff);
 		GeomeTree KDTree = calcTree ();
 		sendTree (KDTree);
 	}
@@ -85,33 +86,41 @@ public class meshTransport : MonoBehaviour {
 
 	Mesh combineMeshes(GameObject[] includedObjects) {
 		CombineInstance[] combine = new CombineInstance[includedObjects.Length];
+
 		for (int i = 0; i < includedObjects.Length; i++) {
-			if (includedObjects [i].GetComponent<AudioListener>() != null) {
-				includedObjects [i].AddComponent<MeshFilter>();
-				MeshFilter thisMeshfilt = includedObjects [i].GetComponent<MeshFilter> ();
-				thisMeshfilt.sharedMesh = ((GameObject)Resources.Load ("Sphere")).GetComponent<MeshFilter> ().sharedMesh;
-				Color[] colors = new Color[thisMeshfilt.sharedMesh.vertices.Length];
-				for(int j =0;j < colors.Length;j++) {
-					colors[j] = new Color(1,1,1);
-				}
-				thisMeshfilt.sharedMesh.colors = colors;
-				combine [i].mesh = thisMeshfilt.sharedMesh;
-				combine [i].transform = thisMeshfilt.transform.localToWorldMatrix;
+			float coeff;
+			Mesh tempMesh;
+			if (includedObjects [i].name.Equals ("Right") || includedObjects [i].name.Equals ("Left")) {
+				
+			 tempMesh = Mesh.Instantiate (includedObjects [i].GetComponent<MeshFilter> ().sharedMesh)as Mesh;
 			} else {
-				MeshFilter thisMeshfilt = includedObjects [i].GetComponent<MeshFilter> ();
-				Color[] colors = new Color[thisMeshfilt.sharedMesh.vertices.Length];
-				for(int j =0;j < colors.Length;j++) {
-					colors[j] = new Color(0,0,0);
-				}
-				thisMeshfilt.sharedMesh.colors = colors;
-				combine [i].mesh = thisMeshfilt.sharedMesh;
-				combine [i].transform = thisMeshfilt.transform.localToWorldMatrix;
+				tempMesh = includedObjects [i].GetComponent<MeshFilter> ().sharedMesh;
 			}
-		}
+
+			coeff = includedObjects [i].GetComponent<raytraceMaterial> ().absorbitonCoeff;
+			Color[] colors = new Color[tempMesh.vertices.Length];
+				
+			for (int j = 0; j < colors.Length; j++) {
+				if(includedObjects[i].name.Equals("Right")) {
+					colors [j] = new Color (0,1,0,1);
+				}else {
+					if(includedObjects[i].name.Equals("Left")) {
+						colors [j] = new Color (0, 0, 1,1);
+					} else {
+
+					colors [j] = new Color (coeff, 0, 0,1);
+					}
+				}
+			}
+			tempMesh.colors = colors;
+			combine [i].mesh = tempMesh;
+			combine [i].transform = includedObjects [i].GetComponent<MeshFilter> ().transform.localToWorldMatrix;
+			}
 		transform.GetComponent<MeshFilter>().mesh = new Mesh();
 		transform.GetComponent<MeshFilter>().mesh.CombineMeshes(combine);
 		transform.GetComponent<MeshRenderer> ().enabled = false;
 		return transform.GetComponent<MeshFilter> ().mesh;
+
 	}
 
 	triangle[] extractTris(Mesh inputMesh) {
@@ -128,8 +137,20 @@ public class meshTransport : MonoBehaviour {
 			Vector3 P3 = transform.TransformPoint(vertVecs [triIdx[(i*3)+2]]);
 			Vector3 faceNorm = Vector3.Cross((P2 - P1),(P3 - P1));
 			faceNorm.Normalize ();
-			int listenerTag = inputMesh.colors [triIdx[i*3]].Equals (new Color (1, 1, 1)) ? 1: 0;
-			outputArray[i] = new triangle(P1,P2,P3,faceNorm,listenerTag);
+			int listenerTag;
+
+			if (inputMesh.colors [triIdx [i * 3]].g == 1) {
+				listenerTag = 1;
+			} else {
+				if (inputMesh.colors [triIdx [i * 3]].b == 1) {
+					listenerTag = 2;
+
+				} else {
+					listenerTag = 0;
+				}
+			}
+
+			outputArray[i] = new triangle(P1,P2,P3,faceNorm,listenerTag,inputMesh.colors [triIdx[i*3]].r);
 		}
 		return outputArray;
 	}
@@ -148,6 +169,7 @@ public class meshTransport : MonoBehaviour {
 		int leafSizeIdx = 0;
 		float[] triangleList = new float[numTris * 12];
 		int[] triangleIdList = new int[numTris];
+		float[] triangleMatList = new float[numTris];
 		int triListIdx = 0;
 		for(int i = 0; i < nodeList.Length; i++) {
 			Bounds tempBounds = nodeList [i].getBB ();
@@ -163,7 +185,10 @@ public class meshTransport : MonoBehaviour {
 				triangle[] nodeTriangles = nodeList [i].getTriangles();
 				leafSizeList [leafSizeIdx++] = nodeTriangles.Length;
 				for (int j = 0; j < nodeTriangles.Length; j++) {
-					triangleIdList [triListIdx] = nodeTriangles [j].isListener;
+
+					triangleIdList [triListIdx] = nodeTriangles [j].objectType;
+					print (triangleIdList [triListIdx].ToString());
+					triangleMatList [triListIdx] = nodeTriangles [j].absorbtionCoeff;
 					triangleList [triListIdx*12] = nodeTriangles [j].P1.x;
 					triangleList [(triListIdx*12)+1] = nodeTriangles [j].P1.y;
 					triangleList [(triListIdx*12)+2] = nodeTriangles [j].P1.z;
@@ -180,8 +205,7 @@ public class meshTransport : MonoBehaviour {
 				}
 			}
 		}
-		print ("sending tree");
-		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length,leafSizeList,triangleIdList.Length,triangleIdList); 
+ 		marshalGeomeTree (numNodes,numTris, depth, boundingBoxList.Length,boundingBoxList,triangleList.Length, triangleList,leafSizeList.Length,leafSizeList,triangleIdList.Length,triangleIdList,triangleMatList.Length,triangleMatList); 
 	}
 
 	void OnDrawGizmos() {

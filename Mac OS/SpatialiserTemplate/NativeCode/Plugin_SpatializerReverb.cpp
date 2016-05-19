@@ -14,7 +14,7 @@ namespace SpatializerReverb
         P_DIFFUSION,
         P_NUM
     };
-
+    
     struct InstanceChannel
     {
         struct Tap

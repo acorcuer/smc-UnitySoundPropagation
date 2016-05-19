@@ -6,6 +6,12 @@ using System.Runtime.InteropServices;
 [InitializeOnLoad]
 public class cppDebug : MonoBehaviour {
 
+//	void start() {
+//		AudioConfiguration config = AudioSettings.GetConfiguration();
+//		config.dspBufferSize = 4096;
+//		AudioSettings.Reset (config);
+//	}
+
 	private delegate void DebugCallback(string message);
 
 	[DllImport("AudioPluginSpatializerTemplate")]

@@ -43,7 +43,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "181"
             endingLineNumber = "181"
-            landmarkName = "testIntersect(Ray *r, float t0, float t1)"
+            landmarkName = "setBB(Vector3 n_max,Vector3 n_min)"
             landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
@@ -59,24 +59,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "226"
             endingLineNumber = "226"
-            landmarkName = "Node(int parentDepth, int maxDepth, std::deque&lt;float&gt; *boundingBoxArray,std::deque&lt;float&gt; *triangleArray,std::deque&lt;int&gt; *leafSizeArray,std::deque&lt;int&gt; *idList)"
+            landmarkName = "Node(int parentDepth, int maxDepth, std::deque&lt;float&gt; *boundingBoxArray,std::deque&lt;float&gt; *triangleArray,std::deque&lt;int&gt; *leafSizeArray,std::deque&lt;int&gt; *idList,std::deque&lt;float&gt; *matList)"
             landmarkType = "5">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "Plugin_Spatializer.cpp"
-            timestampString = "484565967.970247"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "428"
-            endingLineNumber = "428"
-            landmarkName = "ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)"
-            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -91,7 +75,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "241"
             endingLineNumber = "241"
-            landmarkName = "marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[])"
+            landmarkName = "shootRays(std::vector&lt;Ray&gt; *inputRayList,std::vector&lt;Ray&gt; *outputRayList)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -106,7 +90,9 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "286"
-            endingLineNumber = "286">
+            endingLineNumber = "286"
+            landmarkName = "collision(Node *currentNode, Ray *testRay, std::deque&lt;Tri&gt; *candidates)"
+            landmarkType = "5">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -121,8 +107,24 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "102"
             endingLineNumber = "102"
-            landmarkName = "class Ray"
+            landmarkName = "class Tri"
             landmarkType = "3">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Plugin_Spatializer.cpp"
+            timestampString = "485097485.29869"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "109"
+            endingLineNumber = "109"
+            landmarkName = "CreateCallback(UnityAudioEffectState* state)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

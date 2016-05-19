@@ -1,6 +1,10 @@
 #include "AudioPluginUtil.h"
 #include "rayTraceUtil.h"
-
+#include <ctime>
+#include <iostream>
+#include <fstream>
+#include <stdlib.h>
+#include <future>
 extern float hrtfSrcData[];
 extern float reverbmixbuffer[];
 
@@ -10,9 +14,8 @@ namespace Spatializer
     static int numRays = 20;
     static int maxPathLength = 100;
     static int maxNumReflecs = 75;
-    const int HRTFLEN = 512;
-    const float GAINCORRECTION = 2.0f;
-    const static int airAbsorbtion[6] = {0.002, 0.005, 0.005, 0.007, 0.012, 0.057};
+    static float absCoeff = 0.5f;
+    const static float airAbsorbtion[6] = {0.002, 0.005, 0.005, 0.007, 0.012, 0.057};
     const static float C = 343.2;
     const static int impLength = std::ceil(44100 * (maxPathLength/C));
     static GeomeTree* triangleTree;
@@ -21,6 +24,7 @@ namespace Spatializer
     static bool newTree = true;
     static bool treeInit = false;
     static bool enableDebug;
+    bool textWritten = true;
     
     enum
     {
@@ -30,88 +34,45 @@ namespace Spatializer
         P_NUM
     };
     
-    class HRTFData
-    {
-        struct CircleCoeffs
-        {
-            int numangles;
-            float* hrtf;
-            float* angles;
-            
-            void GetHRTF(UnityComplexNumber* h, float angle, float mix)
-            {
-                int index1 = 0;
-                while (index1 < numangles && angles[index1] < angle)
-                    index1++;
-                if (index1 > 0)
-                    index1--;
-                int index2 = (index1 + 1) % numangles;
-                float* hrtf1 = hrtf + HRTFLEN * 4 * index1;
-                float* hrtf2 = hrtf + HRTFLEN * 4 * index2;
-                float f = (angle - angles[index1]) / (angles[index2] - angles[index1]);
-                for (int n = 0; n < HRTFLEN * 2; n++)
-                {
-                    h[n].re += (hrtf1[0] + (hrtf2[0] - hrtf1[0]) * f - h[n].re) * mix;
-                    h[n].im += (hrtf1[1] + (hrtf2[1] - hrtf1[1]) * f - h[n].im) * mix;
-                    hrtf1 += 2;
-                    hrtf2 += 2;
-                }
-            }
-        };
-        
-    public:
-        CircleCoeffs hrtfChannel[2][14];
-        
-    public:
-        HRTFData()
-        {
-            float* p = hrtfSrcData;
-            for (int c = 0; c < 2; c++)
-            {
-                for (int e = 0; e < 14; e++)
-                {
-                    CircleCoeffs& coeffs = hrtfChannel[c][e];
-                    coeffs.numangles = (int)(*p++);
-                    coeffs.angles = p;
-                    p += coeffs.numangles;
-                    coeffs.hrtf = new float[coeffs.numangles * HRTFLEN * 4];
-                    float* dst = coeffs.hrtf;
-                    UnityComplexNumber h[HRTFLEN * 2];
-                    for (int a = 0; a < coeffs.numangles; a++)
-                    {
-                        memset(h, 0, sizeof(h));
-                        for (int n = 0; n < HRTFLEN; n++)
-                            h[n + HRTFLEN].re = p[n];
-                        p += HRTFLEN;
-                        FFT::Forward(h, HRTFLEN * 2, false);
-                        for (int n = 0; n < HRTFLEN * 2; n++)
-                        {
-                            *dst++ = h[n].re;
-                            *dst++ = h[n].im;
-                        }
-                    }
-                }
-            }
-        }
-    };
-    
-    static HRTFData sharedData;
-    
-    struct InstanceChannel
-    {
-        UnityComplexNumber h[HRTFLEN * 2];
-        UnityComplexNumber x[HRTFLEN * 2];
-        UnityComplexNumber y[HRTFLEN * 2];
-        float buffer[HRTFLEN * 2];
+    struct filterData {
+        BiquadFilter Octave1[2];
+        BiquadFilter Octave2[2];
+        BiquadFilter Octave3[2];
+        BiquadFilter Octave4[2];
+        BiquadFilter Octave5[2];
+        BiquadFilter Octave6[2];
+        BiquadFilter Octave7[2];
+        BiquadFilter Octave8[2];
     };
     
     struct EffectData
     {
+        
         float p[P_NUM];
         Vector3 prevPositons[2];
         std::vector<Ray> sucessfullRays;
-        InstanceChannel ch[2];
+        std::vector<float> convOverlapL;
+        std::vector<float> convOverlapR;
+        union
+        {
+            filterData filterBank;
+            unsigned char pad[(sizeof(filterData) + 15) & ~15]; // This entire structure must be a multiple of 16 bytes (and and instance 16 byte aligned) for PS3 SPU DMA requirements
+        };
+        
     };
+    
+    static void SetupFilterCoeffs(filterData* data, float samplerate)
+    {
+        data->Octave1->SetupLowpass(63, samplerate, 1);
+        data->Octave2->SetupBandpass(125, samplerate, 1);
+        data->Octave3->SetupBandpass(250, samplerate, 1);
+        data->Octave4->SetupBandpass(500, samplerate, 1);
+        data->Octave5->SetupBandpass(1000, samplerate, 1);
+        data->Octave6->SetupBandpass(2000, samplerate, 1);
+        data->Octave7->SetupBandpass(4000, samplerate, 1);
+        data->Octave8->SetupHighpass(8000, samplerate, 1);
+    }
+    
     
     inline bool IsHostCompatible(UnityAudioEffectState* state)
     {
@@ -150,6 +111,7 @@ namespace Spatializer
         if (IsHostCompatible(state))
             state->spatializerdata->distanceattenuationcallback = DistanceAttenuationCallback;
         InitParametersFromDefinitions(InternalRegisterEffectDefinition, effectdata->p);
+        SetupFilterCoeffs(&effectdata->filterBank, state->samplerate);
         if(enableDebug){
             DebugInUnity(std::string("Spatialiser plugin loaded sucessfully"));
         }
@@ -193,22 +155,6 @@ namespace Spatializer
         return UNITY_AUDIODSP_OK;
     }
     
-    static void GetHRTF(int channel, UnityComplexNumber* h, float azimuth, float elevation)
-    {
-        float e = FastClip(elevation * 0.1f + 4, 0, 12);
-        float f = floorf(e);
-        int index1 = (int)f;
-        if (index1 < 0)
-            index1 = 0;
-        else if (index1 > 12)
-            index1 = 12;
-        int index2 = index1 + 1;
-        if (index2 > 12)
-            index2 = 12;
-        sharedData.hrtfChannel[channel][index1].GetHRTF(h, azimuth, 1.0f);
-        sharedData.hrtfChannel[channel][index2].GetHRTF(h, azimuth, e - f);
-    }
-    
     extern "C" ABA_API void getRayData(long* len, float **data){
         *len = rayOutputData.size();
         auto size = (*len)*sizeof(float);
@@ -220,21 +166,23 @@ namespace Spatializer
         enableDebug = state;
     }
     
-    extern "C" ABA_API void setTraceParam(int numberOfRays,int maxLen,int maxReflec){
+    extern "C" ABA_API void setTraceParam(int numberOfRays,int maxLen,int maxReflec, float absorbtionCoeff){
+        absCoeff = absorbtionCoeff;
         numRays  = numberOfRays;
         sourceSphere = raySphere(numRays);
         maxPathLength = maxLen;
         maxNumReflecs = maxReflec;
-        
     }
     
-    extern "C" ABA_API void marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[]) {
+    extern "C" ABA_API void marshalGeomeTree(int numNodes,int numTri, int depth,int bbl,float boundingBoxes[],int tl,float triangles[],int lsl,int leafSizes[],int tidl, int triangleIds[],int tml,float triangleMatList[]) {
         rayOutputData.clear();
         std::deque<float> boundingList(boundingBoxes, boundingBoxes + bbl);
         std::deque<float> triangleList(triangles, triangles + tl);
         std::deque<int> leafSizeList(leafSizes, leafSizes + lsl);
         std::deque<int> triangleIdList(triangleIds, triangleIds + tidl);
-        triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList,&triangleIdList);
+        std::deque<float> triangleMats(triangleMatList, triangleMatList + tml);
+        
+        triangleTree = new GeomeTree(depth,&boundingList,&triangleList,&leafSizeList,&triangleIdList,&triangleMats);
         if(enableDebug){
             std::stringstream sstr;
             sstr << "received and constructed tree with ";
@@ -275,7 +223,7 @@ namespace Spatializer
                     float t;
                     bool intersectResult = inputRayList->at(i).testIntersect(&candidates[j], &t);
                     if(intersectResult){
-                        if(t < min && t > 0.1f) {
+                        if(t < min && t > kEpsilon) {
                             min = t;
                             minDistIdx = j;
                         }
@@ -284,6 +232,7 @@ namespace Spatializer
                 // if minimum distance is not infinity (therefore no valid intersections)
                 // update the ray
                 if(min != INFINITY){
+                    
                     addToDebugList(&inputRayList->at(i), &min);
                     // Update origin
                     inputRayList->at(i).origin = inputRayList->at(i).origin + (inputRayList->at(i).direction * fabsf(min));
@@ -293,12 +242,15 @@ namespace Spatializer
                     inputRayList->at(i).pathLength += fabsf(min);
                     //Update angle
                     inputRayList->at(i).updateDirec(candidates[minDistIdx].faceNorm);
-                    if(candidates[minDistIdx].isListener){
+                    // update absorbtion
+                    inputRayList->at(i).absorbtion *= (1.0f-candidates[minDistIdx].absorbitonCoeff);
+                    if(candidates[minDistIdx].objectType != 0){
+                        inputRayList->at(i).listenerTag = candidates[minDistIdx].objectType;
                         addToDebugList(&inputRayList->at(i), &min);
                         outputRayList->push_back(inputRayList->at(i));
                         inputRayList->erase(inputRayList->begin()+i);
                     }else{
-                        if(inputRayList->at(i).numReflecs >= maxNumReflecs ||inputRayList->at(i).pathLength >= maxPathLength){
+                        if(inputRayList->at(i).numReflecs >= maxNumReflecs || inputRayList->at(i).pathLength >= maxPathLength || inputRayList->at(i).absorbtion < 0.01){
                             addToDebugList(&inputRayList->at(i), NULL);
                             inputRayList->erase(inputRayList->begin()+i);
                         }
@@ -317,51 +269,127 @@ namespace Spatializer
         }
     }
     
-    std::vector<float> calcImpResponse(float* listenerMatrix,float* sourceMatrix, float octavePower[],EffectData* data) {
-        std::vector<float> impulseResponse(impLength);
+    void task() {
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        std::stringstream sstr;
+        sstr << "after process";
+        sendStringStream(&sstr);
+    }
+    
+    void calcImpResponse(float* listenerMatrix,float* sourceMatrix, float octavePower[],EffectData* data,std::vector<float>* left,std::vector<float>* right) {
+        
         Vector3 sourcePos = Vector3(sourceMatrix[12], sourceMatrix[13], sourceMatrix[14]);
         Vector3 listenerPos = Vector3(listenerMatrix[12], listenerMatrix[13], sourceMatrix[14]);
+        float maxL = -INFINITY;
+        float maxR = -INFINITY;
+        std::vector<int> idxL;
+        std::vector<int> idxR;
         bool reShoot = false;
         
         if(sourcePos != data->prevPositons[0]){
-            std::stringstream sstr;
-            sstr << " CHANGE";
-            sendStringStream(&sstr);
             reShoot = true;
             data->prevPositons[0] = sourcePos;
         }
         if(listenerPos != data->prevPositons[1]){
-            std::stringstream sstr;
-            sstr << " CHANGE";
-            sendStringStream(&sstr);
             reShoot = true;
             data->prevPositons[1] = listenerPos;
         }
         
         if(reShoot || newTree ) {
-        data->sucessfullRays.clear();
-        std::vector<Ray> sourceRays = sourceSphere.getRayList(sourcePos);
-        shootRays(&sourceRays,&data->sucessfullRays);
-        newTree = false;
+            data->sucessfullRays.clear();
+            std::vector<Ray> sourceRays = sourceSphere.getRayList(sourcePos);
+            shootRays(&sourceRays,&data->sucessfullRays);
+            newTree = false;
             if(enableDebug){
                 std::stringstream sstr;
                 sstr << data->sucessfullRays.size();
                 sstr << " Sucessfull Rays";
                 sendStringStream(&sstr);
+                
             }
         }
         
         for(int i = 0; i < 6; i++){
             for(int j = 0; j < data->sucessfullRays.size(); j++) {
-                impulseResponse[(int)std::ceil(data->sucessfullRays[j].pathLength/C)] += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*powf(1-0.5,data->sucessfullRays[j].numReflecs);
+                int sampIdx = (int)std::round((data->sucessfullRays[j].pathLength/C)*44100);
+                if(data->sucessfullRays[j].listenerTag == 1) {
+                    if(i == 0) {
+                        idxR.push_back(sampIdx);
+                    }
+                    if(sampIdx > right->size()) {
+                        right->resize(sampIdx+1);
+                    }
+                    right->at(sampIdx) += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*data->sucessfullRays[j].absorbtion;
+                    if(right->at(sampIdx) > maxR) {
+                        maxR = right->at(sampIdx);
+                    }
+                }else {
+                    if(i == 0) {
+                        idxL.push_back(sampIdx);
+                    }
+                    if(sampIdx > left->size()){
+                        left->resize(sampIdx+1);
+                    }
+                    left->at(sampIdx) += octavePower[i]*expf(-airAbsorbtion[i]*data->sucessfullRays[j].pathLength)*data->sucessfullRays[j].absorbtion;
+                    
+                    if(left->at(sampIdx) > maxL) {
+                        maxL = left->at(sampIdx);
+                    }
+                    
+                }
             }
         }
-        return impulseResponse;
+        
+        int minL = left->size();
+        int minR = right->size();
+        // Normalise IR and remove front zeros
+        for(int i = 0; i < idxL.size(); i++) {
+            int idx =idxL[i];
+            left->at(idx) = left->at(idx)/maxL ;
+            if(idx < minL) {
+                minL = idx;
+            }
+        }
+        for(int i = 0; i < idxR.size(); i++) {
+            int idx =idxR[i];
+            right->at(idx) = right->at(idx)/maxR;
+            if(idx < minR) {
+                minR = idx;
+            }
+        }
+        int min = std::min(minL, minR);
+        left->erase(left->begin(), left->begin()+min);
+        right->erase(right->begin(), right->begin()+min);
+        
+        if(textWritten){
+            std::ofstream arrayDataL("/Users/Alex/IRL.txt");
+            std::ofstream arrayDataR("/Users/Alex/IRR.txt");
+            
+            for(int i = 0;i < left->size();i++){
+                arrayDataL << left->at(i);
+                arrayDataL<< ",";
+            }
+            for(int i = 0;i < right->size();i++){
+                arrayDataR << right->at(i);
+                arrayDataR<< ",";
+            }
+            textWritten = false;
+            if(enableDebug) {
+                std::stringstream sstr;
+                sstr << " saved IR";
+                sendStringStream(&sstr);
+            }
+        }
     };
-    
     
     UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
     {
+        
+        //        clock_t start;
+        //        double diff;
+        //        start = clock();
+        
+        
         // Check that I/O formats are right and that the host API supports this feature
         if (inchannels != 2 || outchannels != 2 ||
             !IsHostCompatible(state) || state->spatializerdata == NULL)
@@ -371,100 +399,42 @@ namespace Spatializer
         }
         
         EffectData* data = state->GetEffectData<EffectData>();
-        static const float kRad2Deg = 180.0f / kPI;
-        float* m = state->spatializerdata->listenermatrix;
-        float* s = state->spatializerdata->sourcematrix;
-        
-        float px = s[12];
-        float py = s[13];
-        float pz = s[14];
-        float dir_x = m[0] * px + m[4] * py + m[8] * pz + m[12];
-        float dir_y = m[1] * px + m[5] * py + m[9] * pz + m[13];
-        float dir_z = m[2] * px + m[6] * py + m[10] * pz + m[14];
-        
-        float azimuth = (fabsf(dir_z) < 0.001f) ? 0.0f : atan2f(dir_x, dir_z);
-        if (azimuth < 0.0f)
-            azimuth += 2.0f * kPI;
-        azimuth = FastClip(azimuth * kRad2Deg, 0.0f, 360.0f);
-        
-        float elevation = atan2f(dir_y, sqrtf(dir_x * dir_x + dir_z * dir_z) + 0.001f) * kRad2Deg;
-        float spatialblend = state->spatializerdata->spatialblend;
-        float reverbmix = state->spatializerdata->reverbzonemix;
-        
-        GetHRTF(0, data->ch[0].h, azimuth, elevation);
-        GetHRTF(1, data->ch[1].h, azimuth, elevation);
-        float spread = cosf(state->spatializerdata->spread * kPI / 360.0f);
-        float spreadmatrix[2] = { 2.0f - spread, spread };
-        
-        float* reverb = reverbmixbuffer;
-        for (int sampleOffset = 0; sampleOffset < length; sampleOffset += HRTFLEN)
+        float octavePower[6] = {0.0f};
+        float mono[length];
+        UnityComplexNumber compMono[length/2];
+        for (unsigned int n = 0; n < length; n++)
         {
-            for (int c = 0; c < 2; c++)
-            {
-                float stereopan = 1.0f - ((c == 0) ? FastMax(0.0f, state->spatializerdata->stereopan) : FastMax(0.0f, -state->spatializerdata->stereopan));
-                
-                InstanceChannel& ch = data->ch[c];
-                
-                for (int n = 0; n < HRTFLEN; n++)
-                {
-                    float left  = inbuffer[n * 2];
-                    float right = inbuffer[n * 2 + 1];
-                    ch.buffer[n] = ch.buffer[n + HRTFLEN];
-                    ch.buffer[n + HRTFLEN] = left * spreadmatrix[c] + right * spreadmatrix[1 - c];
-                }
-                
-                UnityComplexNumber windowedInput[HRTFLEN*2];
-                int numBands = 6;
-                int startFreq = 250;
-                int startIdx = (int)startFreq/((state->samplerate/2)/(HRTFLEN*2));
-                float octavePower[numBands];
-                
-                for (int n = 0; n < HRTFLEN * 2; n++)
-                {
-                    windowedInput[n].re = (0.54f - 0.46f * cosf(n * (kPI / (float)HRTFLEN*2))) * ch.buffer[n];
-                    windowedInput[n].im = 0.0f;
-                    ch.x[n].re = ch.buffer[n];
-                    ch.x[n].im = 0.0f;
-                }
-                
-                FFT::Forward(windowedInput, HRTFLEN * 2, false);
-                
-                for(int i = 0; i < numBands; i++) {
-                    int binStartIdx = startIdx * (i+1);
-                    int binWidth = (binStartIdx*2)-binStartIdx;
-                    float magSum = 0;
-                    for(int j = (binStartIdx-(binWidth/2)); j < (binStartIdx * 2)+(binWidth/2); j++) {
-                        magSum += windowedInput[j].Magnitude2()*0.5f*(1.0f-cos(2*kPI*((j/(binWidth*2)))));
-                    }
-                    octavePower[i] = sqrtf(magSum*2.0f);
-                }
-                
-                if(treeInit){
-                std::vector<float> imp = calcImpResponse(m,s,octavePower,data);
-                }
-                
-                
-                FFT::Forward(ch.x, HRTFLEN * 2, false);
-                
-                for (int n = 0; n < HRTFLEN * 2; n++)
-                    UnityComplexNumber::Mul<float, float, float>(ch.x[n], ch.h[n], ch.y[n]);
-                
-                FFT::Backward(ch.y, HRTFLEN * 2, false);
-                
-                for (int n = 0; n < HRTFLEN; n++)
-                {
-                    float s = inbuffer[n * 2 + c] * stereopan;
-                    float y = s + (ch.y[n].re * GAINCORRECTION - s) * spatialblend;
-                    outbuffer[n * 2 + c] = y;
-                    reverb[n * 2 + c] += y * reverbmix;
-                }
-            }
-            
-            inbuffer += HRTFLEN * 2;
-            outbuffer += HRTFLEN * 2;
-            reverb += HRTFLEN * 2;
+            mono[n] = (inbuffer[n * 2] + inbuffer[n * 2 + 1]) / 2.0f;
+            compMono[n].re = mono[n];
+            compMono[n].im = 0.0f;
+            octavePower[0] += powf(data->filterBank.Octave1[0].Process(mono[n]),2.0f);
+            octavePower[1] += powf(data->filterBank.Octave2[0].Process(mono[n]),2.0);
+            octavePower[2] += powf(data->filterBank.Octave3[0].Process(mono[n]),2.0f);
+            octavePower[3] += powf(data->filterBank.Octave4[0].Process(mono[n]),2.0f);
+            octavePower[4] += powf(data->filterBank.Octave5[0].Process(mono[n]),2.0f);
+            octavePower[5] += powf(data->filterBank.Octave6[0].Process(mono[n]),2.0f);
         }
         
+        for(int i = 0 ;  i < 6; i++) {
+            octavePower[i] = sqrtf(octavePower[i]/length);
+        }
+        
+        std::vector<float> impLeft;
+        std::vector<float> impRight;
+        float* l = state->spatializerdata->listenermatrix;
+        float* s = state->spatializerdata->sourcematrix;
+        bool impCalc = false;
+        if(treeInit){
+            calcImpResponse(l,s,octavePower,data,&impLeft,&impRight);
+            impCalc = true;
+        }
+                if(impCalc == true) {
+                    
+                    
+                }
+        //        std::stringstream sstr2;
+        //        sstr2 << diff;
+        //        sendStringStream(&sstr2);
         return UNITY_AUDIODSP_OK;
     }
 }
